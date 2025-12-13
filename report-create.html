@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<title>新增通報｜路見不平通報系統</title>
+<style>
+  body {
+    font-family: Arial;
+    max-width: 720px;
+    margin: 30px auto;
+  }
+  header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  input, textarea, button {
+    width: 100%;
+    padding: 10px;
+    margin-top: 8px;
+  }
+  textarea {
+    resize: vertical;
+    height: 100px;
+  }
+  button {
+    cursor: pointer;
+  }
+  .card {
+    border: 1px solid #ccc;
+    padding: 15px;
+    margin-top: 20px;
+  }
+  .row {
+    display: flex;
+    gap: 10px;
+  }
+  .radio-group {
+    margin-top: 8px;
+  }
+  .radio-group label {
+    margin-right: 20px;
+  }
+ .severity-buttons {
+  display: flex;
+  gap: 16px;
+  margin-top: 8px;
+}
+
+.severity-btn {
+  flex: 1;
+  padding: 10px;
+  border: 1px solid #ccc;
+  background: #fff;
+  cursor: pointer;
+  border-radius: 6px;
+}
+
+.severity-btn.active {
+  background: #e0e0e0;
+  border-color: #666;
+}
+
+.severity-btn.urgent.active {
+  background: #ffe5e5;
+  border-color: #e74c3c;
+  color: #e74c3c;
+}
+
+
+
+</style>
+</head>
+<body>
+
+<header>
+  <h2>新增通報</h2>
+  <button id="backBtn">返回</button>
+</header>
+
+<div class="card">
+  <label>通報標題 *</label>
+  <input id="titleInput" placeholder="例如：路面坑洞">
+
+  <label>問題描述 *</label>
+  <textarea id="descInput" placeholder="請詳細描述問題狀況"></textarea>
+
+ 
+
+
+  <label>地點說明（地址 / 地標）</label>
+  <input id="locationInput" placeholder="可不填，若有 GPS 位置">
+
+  <label>GPS 位置</label>
+  <button id="gpsBtn" type="button">自動偵測目前位置</button>
+
+  <div class="row">
+    <input id="latInput" placeholder="緯度 (Latitude)">
+    <input id="lngInput" placeholder="經度 (Longitude)">
+  </div>
+<div>
+  <small>※ 可自動取得或手動輸入經緯度；若未提供，請填寫地點說明</small>
+  </div>
+<label>嚴重程度 *</label>
+
+<div class="severity-buttons">
+  <button type="button"
+          class="severity-btn active"
+          data-value="normal">
+    一般
+  </button>
+
+  <button type="button"
+          class="severity-btn urgent"
+          data-value="urgent">
+    緊急
+  </button>
+</div>
+
+<input type="hidden" id="severity" value="normal">
+
+
+  <label>上傳照片 *</label>
+  <input type="file" id="imageInput" accept="image/*">
+
+  <button id="submitBtn">送出通報</button>
+</div>
+
+<!-- 🔐 登入守門 -->
+<script type="module" src="auth-guard.js"></script>
+
+<script type="module">
+import { initializeApp } from
+  "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+import { getAuth } from
+  "https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js";
+import {
+  getFirestore,
+  collection,
+  addDoc,
+  serverTimestamp
+} from
+  "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
+
+/* ===== Firebase 設定 ===== */
+const firebaseConfig = {
+  apiKey: "AIzaSyDQziEhhw0dPu_io9sfWT-a3sADgIKFSd4",
+  authDomain: "system-b4d2d.firebaseapp.com",
+  projectId: "system-b4d2d"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+
+/* ===== Cloudinary 設定（請換成你的） ===== */
+const CLOUD_NAME = "dntuqyn7t";
+const UPLOAD_PRESET = "report_images";
+
+
+/* ===== 返回 ===== */
+backBtn.onclick = () => history.back();
+
+/* ===== GPS 自動定位 ===== */
+gpsBtn.onclick = () => {
+  if (!navigator.geolocation) {
+    alert("瀏覽器不支援定位");
+    return;
+  }
+
+  gpsBtn.disabled = true;
+  gpsBtn.innerText = "定位中...";
+
+  navigator.geolocation.getCurrentPosition(
+    (pos) => {
+      latInput.value = pos.coords.latitude.toFixed(6);
+      lngInput.value = pos.coords.longitude.toFixed(6);
+      gpsBtn.innerText = "已取得位置";
+      gpsBtn.disabled = false;
+    },
+    () => {
+      alert("無法取得位置，請手動輸入");
+      gpsBtn.innerText = "自動偵測目前位置";
+      gpsBtn.disabled = false;
+    },
+    { enableHighAccuracy: true, timeout: 10000 }
+  );
+};
+
+/* ===== 送出通報 ===== */
+submitBtn.onclick = async () => {
+  try {
+    const user = auth.currentUser;
+    if (!user) throw new Error("尚未登入");
+
+    const title = titleInput.value.trim();
+    const desc = descInput.value.trim();
+    const locationText = locationInput.value.trim();
+    const lat = parseFloat(latInput.value);
+    const lng = parseFloat(lngInput.value);
+    const file = imageInput.files[0];
+
+    const severity = document.getElementById("severity").value;
+
+    if (!title || !desc || !file) {
+      throw new Error("請填寫標題、描述並上傳照片");
+    }
+
+    const hasLatLng = !isNaN(lat) && !isNaN(lng);
+    const hasLocationText = locationText.length > 0;
+
+    if (!hasLatLng && !hasLocationText) {
+      throw new Error("請提供 GPS 位置或填寫地點說明");
+    }
+
+    submitBtn.disabled = true;
+    submitBtn.innerText = "上傳中...";
+
+    /* 1️⃣ Cloudinary 上傳圖片 */
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("upload_preset", UPLOAD_PRESET);
+
+    const res = await fetch(
+      `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`,
+      { method: "POST", body: formData }
+    );
+
+    const imgData = await res.json();
+    if (!imgData.secure_url) {
+      throw new Error("圖片上傳失敗");
+    }
+
+    /* 2️⃣ Firestore 寫入 */
+    await addDoc(collection(db, "reports"), {
+      title,
+      description: desc,
+      severity,                 // ⭐ 嚴重程度
+      locationText: hasLocationText ? locationText : "",
+      latitude: hasLatLng ? lat : null,
+      longitude: hasLatLng ? lng : null,
+      imageUrl: imgData.secure_url,
+      status: "submitted",
+      createdBy: user.uid,
+      createdAt: serverTimestamp()
+    });
+
+    alert("通報已送出");
+    location.href = "user.html";
+
+  } catch (err) {
+    console.error(err);
+    alert(err.message);
+    submitBtn.disabled = false;
+    submitBtn.innerText = "送出通報";
+  }
+};
+
+const buttons = document.querySelectorAll('.severity-btn');
+const severityInput = document.getElementById('severity');
+
+if (!severityInput) {
+  console.error("❌ 找不到 #severity hidden input");
+}
+
+buttons.forEach(btn => {
+  btn.addEventListener('click', () => {
+    buttons.forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    severityInput.value = btn.dataset.value;
+  });
+});
+
+
+
+</script>
+
+</body>
+</html>

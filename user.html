@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<title>一般使用者｜路見不平通報系統</title>
+<style>
+  body {
+    font-family: Arial;
+    max-width: 800px;
+    margin: 30px auto;
+  }
+  header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  button {
+    padding: 8px 14px;
+    cursor: pointer;
+  }
+  .card {
+    border: 1px solid #ccc;
+    padding: 15px;
+    margin-top: 15px;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h2>一般使用者首頁</h2>
+  <button id="logoutBtn">登出</button>
+</header>
+
+<div class="card">
+  <p><strong>登入者：</strong><span id="userEmail">載入中...</span></p>
+  <p><strong>身分：</strong>一般民眾</p>
+</div>
+
+<div class="card">
+  <h3>通報功能</h3>
+  <button id="createReportBtn">新增通報</button>
+  <button id="myReportsBtn">查看我的通報</button>
+</div>
+
+<div class="card">
+  <h3>系統公告</h3>
+  <p>請善用通報功能，避免惡意或重複通報。</p>
+</div>
+
+<!-- 🔐 登入守門 + 角色導頁 -->
+<script type="module" src="auth-guard.js"></script>
+
+<script type="module">
+import { getAuth, signOut, onAuthStateChanged } from
+  "https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js";
+
+const auth = getAuth();
+
+/* ===== 顯示使用者 Email ===== */
+onAuthStateChanged(auth, (user) => {
+  if (user) {
+    document.getElementById("userEmail").innerText = user.email;
+  }
+});
+
+/* ===== 登出 ===== */
+logoutBtn.onclick = async () => {
+  await signOut(auth);
+  location.href = "auth.html";
+};
+
+/* ===== 新增通報 ===== */
+createReportBtn.onclick = () => {
+  location.href = "report-create.html";
+};
+
+/* ===== 我的通報 ===== */
+myReportsBtn.onclick = () => {
+  alert("下一步：我的通報列表");
+};
+</script>
+</body>
+</html>

@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<title>施工廠商｜路見不平通報系統</title>
+<style>
+  body {
+    font-family: Arial;
+    max-width: 900px;
+    margin: 30px auto;
+  }
+  header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  button {
+    padding: 8px 14px;
+    cursor: pointer;
+    margin-right: 8px;
+  }
+  .card {
+    border: 1px solid #ccc;
+    padding: 15px;
+    margin-top: 15px;
+  }
+  .actions button {
+    margin-bottom: 8px;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h2>施工廠商後台</h2>
+  <button id="logoutBtn">登出</button>
+</header>
+
+<div class="card">
+  <p><strong>登入者：</strong><span id="userEmail">載入中...</span></p>
+  <p><strong>身分：</strong>施工廠商</p>
+</div>
+
+<div class="card actions">
+  <h3>我的案件</h3>
+  <button id="myReportsBtn">查看指派案件</button>
+  <button id="acceptReportBtn">受理案件</button>
+</div>
+
+<div class="card actions">
+  <h3>施工管理</h3>
+  <button id="assignWorkerBtn">安排施工人員</button>
+  <button id="uploadBeforeBtn">上傳施工前照片</button>
+  <button id="uploadAfterBtn">上傳施工後照片</button>
+  <button id="updateStatusBtn">更新案件狀態</button>
+</div>
+
+<div class="card">
+  <h3>注意事項</h3>
+  <p>請於施工前後確實上傳照片，並即時更新案件狀態。</p>
+</div>
+
+<!-- 🔐 登入守門 + 角色導頁 -->
+<script type="module" src="auth-guard.js"></script>
+
+<script type="module">
+import { getAuth, onAuthStateChanged, signOut } from
+  "https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js";
+
+const auth = getAuth();
+
+/* ===== 顯示登入者 Email ===== */
+onAuthStateChanged(auth, (user) => {
+  if (user) {
+    document.getElementById("userEmail").innerText = user.email;
+  }
+});
+
+/* ===== 登出 ===== */
+logoutBtn.onclick = async () => {
+  await signOut(auth);
+  location.href = "auth.html";
+};
+
+/* ===== 功能按鈕（目前先佔位） ===== */
+myReportsBtn.onclick = () => {
+  alert("下一步：查詢指派給該廠商的案件（Firestore 查詢）");
+};
+
+acceptReportBtn.onclick = () => {
+  alert("下一步：受理案件（更新案件狀態）");
+};
+
+assignWorkerBtn.onclick = () => {
+  alert("下一步：安排施工人員");
+};
+
+uploadBeforeBtn.onclick = () => {
+  alert("下一步：施工前照片上傳（Cloudinary）");
+};
+
+uploadAfterBtn.onclick = () => {
+  alert("下一步：施工後照片上傳（Cloudinary）");
+};
+
+updateStatusBtn.onclick = () => {
+  alert("下一步：更新案件狀態（processing / completed）");
+};
+</script>
+
+</body>
+</html>

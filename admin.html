@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<title>系統管理員｜路見不平通報系統</title>
+<style>
+  body {
+    font-family: Arial;
+    max-width: 1000px;
+    margin: 30px auto;
+  }
+  header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  button {
+    padding: 6px 12px;
+    cursor: pointer;
+    margin-right: 6px;
+  }
+  .card {
+    border: 1px solid #ccc;
+    padding: 15px;
+    margin-top: 20px;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 10px;
+  }
+  th, td {
+    border: 1px solid #ddd;
+    padding: 8px;
+    text-align: left;
+  }
+  th {
+    background-color: #f3f3f3;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h2>系統管理員後台</h2>
+  <button id="logoutBtn">登出</button>
+</header>
+
+<!-- 管理員資訊 -->
+<div class="card">
+  <p><strong>登入者：</strong><span id="adminEmail">載入中...</span></p>
+  <p><strong>身分：</strong>系統管理員</p>
+</div>
+
+<!-- 待審核帳號 -->
+<div class="card">
+  <h3>待審核帳號清單</h3>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Email</th>
+        <th>申請身分</th>
+        <th>操作</th>
+      </tr>
+    </thead>
+    <tbody id="pendingTable">
+      <tr>
+        <td colspan="3">載入中...</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- 🔐 登入守門 + 角色導頁 -->
+<script type="module" src="auth-guard.js"></script>
+
+<script type="module">
+import { getAuth, onAuthStateChanged, signOut } from
+  "https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js";
+import {
+  getFirestore,
+  collection,
+  query,
+  where,
+  getDocs,
+  doc,
+  updateDoc
+} from
+  "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
+
+const auth = getAuth();
+const db = getFirestore();
+
+/* ===== 顯示登入者 Email ===== */
+onAuthStateChanged(auth, (user) => {
+  if (user) {
+    document.getElementById("adminEmail").innerText = user.email;
+  }
+});
+
+/* ===== 登出 ===== */
+logoutBtn.onclick = async () => {
+  await signOut(auth);
+  location.href = "auth.html";
+};
+
+/* ===== 載入待審核帳號 ===== */
+async function loadPendingUsers() {
+  const table = document.getElementById("pendingTable");
+  table.innerHTML = "<tr><td colspan='3'>載入中...</td></tr>";
+
+  const q = query(
+    collection(db, "users"),
+    where("status", "==", "pending")
+  );
+
+  const snap = await getDocs(q);
+
+  if (snap.empty) {
+    table.innerHTML = "<tr><td colspan='3'>沒有待審核帳號</td></tr>";
+    return;
+  }
+
+  table.innerHTML = "";
+
+  snap.forEach(docSnap => {
+    const user = docSnap.data();
+    const uid = docSnap.id;
+
+    const roleText =
+      user.role === "vendor_req" ? "施工廠商" :
+      user.role === "gov_req" ? "政府人員" :
+      user.role;
+
+    table.innerHTML += `
+      <tr>
+        <td>${user.email}</td>
+        <td>${roleText}</td>
+        <td>
+          <button onclick="approveUser('${uid}', '${user.role}')">核准</button>
+          <button onclick="rejectUser('${uid}')">拒絕</button>
+        </td>
+      </tr>
+    `;
+  });
+}
+
+/* ===== 核准帳號 ===== */
+window.approveUser = async (uid, role) => {
+  let newRole = "";
+
+  if (role === "vendor_req") newRole = "vendor";
+  if (role === "gov_req") newRole = "government";
+
+  if (!newRole) {
+    alert("未知角色");
+    return;
+  }
+
+  await updateDoc(doc(db, "users", uid), {
+    role: newRole,
+    status: "active"
+  });
+
+  alert("已核准帳號");
+  loadPendingUsers();
+};
+
+/* ===== 拒絕帳號 ===== */
+window.rejectUser = async (uid) => {
+  await updateDoc(doc(db, "users", uid), {
+    status: "suspended"
+  });
+
+  alert("已拒絕帳號");
+  loadPendingUsers();
+};
+
+/* ===== 頁面載入時自動載入 ===== */
+loadPendingUsers();
+</script>
+
+</body>
+</html>

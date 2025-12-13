@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<title>路見不平通報系統 - 登入 / 註冊</title>
+<style>
+  body { font-family: Arial; max-width: 380px; margin: 40px auto; }
+  h2 { text-align: center; }
+  input, select, button {
+    width: 100%;
+    padding: 10px;
+    margin: 6px 0;
+  }
+  button { cursor: pointer; }
+  .hidden { display: none; }
+  .link {
+    text-align: center;
+    color: blue;
+    cursor: pointer;
+    font-size: 14px;
+    margin-top: 6px;
+  }
+</style>
+</head>
+<body>
+
+<h2 id="title">登入</h2>
+
+<!-- ===== 登入 ===== -->
+<div id="loginBox">
+  <input id="loginEmail" placeholder="Email">
+  <input id="loginPassword" type="password" placeholder="密碼">
+  <button id="loginBtn">登入</button>
+
+  <div class="link" onclick="showRegister()">註冊新帳號</div>
+  <div class="link" onclick="showReset()">忘記密碼</div>
+</div>
+
+<!-- ===== 註冊 ===== -->
+<div id="registerBox" class="hidden">
+  <input id="regName" placeholder="姓名">
+  <input id="regEmail" placeholder="Email">
+  <input id="regPassword" type="password" placeholder="密碼">
+
+  <!-- 角色選擇（安全版本） -->
+  <select id="regRole">
+    <option value="user">一般民眾</option>
+    <option value="vendor_req">施工廠商（需審核）</option>
+    <option value="gov_req">政府人員（需審核）</option>
+  </select>
+
+  <button id="registerBtn">註冊</button>
+  <div class="link" onclick="showLogin()">回登入</div>
+</div>
+
+<!-- ===== 忘記密碼 ===== -->
+<div id="resetBox" class="hidden">
+  <input id="resetEmail" placeholder="Email">
+  <button id="resetBtn">寄送重設密碼信</button>
+  <div class="link" onclick="showLogin()">回登入</div>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+import {
+  getAuth,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  sendPasswordResetEmail,
+  GoogleAuthProvider,
+  signInWithPopup
+} from "https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js";
+import {
+  getFirestore,
+  doc,
+  setDoc,
+  getDoc
+} from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
+
+/* ========= Firebase 設定（換成你自己的） ========= */
+const firebaseConfig = {
+  apiKey: "AIzaSyDQziEhhw0dPu_io9sfWT-a3sADgIKFSd4",
+  authDomain: "system-b4d2d.firebaseapp.com",
+  projectId: "system-b4d2d"
+};
+/* =============================================== */
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+
+/* ===== 畫面切換 ===== */
+window.showLogin = () => {
+  title.innerText = "登入";
+  loginBox.classList.remove("hidden");
+  registerBox.classList.add("hidden");
+  resetBox.classList.add("hidden");
+};
+
+window.showRegister = () => {
+  title.innerText = "註冊";
+  loginBox.classList.add("hidden");
+  registerBox.classList.remove("hidden");
+  resetBox.classList.add("hidden");
+};
+
+window.showReset = () => {
+  title.innerText = "重設密碼";
+  loginBox.classList.add("hidden");
+  registerBox.classList.add("hidden");
+  resetBox.classList.remove("hidden");
+};
+
+/* ===== Email / 密碼登入 ===== */
+loginBtn.onclick = async () => {
+  try {
+    const res = await signInWithEmailAndPassword(
+      auth,
+      loginEmail.value,
+      loginPassword.value
+    );
+
+    const ref = doc(db, "users", res.user.uid);
+    const snap = await getDoc(ref);
+
+    if (!snap.exists()) {
+      alert("找不到使用者資料，請重新註冊");
+      return;
+    }
+
+    const data = snap.data();
+    if (data.status !== "active") {
+      alert("帳號尚未審核或已停權");
+      return;
+    }
+
+    // 👉 交給 auth-guard 判斷角色
+    location.href = "index.html";
+  } catch (e) {
+    alert(e.message);
+  }
+};
+
+
+
+/* ===== 註冊 ===== */
+registerBtn.onclick = async () => {
+  try {
+    const role = regRole.value;
+    const allowedRoles = ["user", "vendor_req", "gov_req"];
+    if (!allowedRoles.includes(role)) {
+      alert("非法角色");
+      return;
+    }
+
+    const res = await createUserWithEmailAndPassword(
+      auth,
+      regEmail.value,
+      regPassword.value
+    );
+
+    await setDoc(doc(db, "users", res.user.uid), {
+      name: regName.value,
+      email: regEmail.value,
+      role,
+      status: role === "user" ? "active" : "pending",
+      createdAt: new Date()
+    });
+
+    alert("註冊成功，部分身分需等待審核");
+    showLogin();
+  } catch (e) {
+    alert(e.message);
+  }
+};
+
+/* ===== 忘記密碼 ===== */
+resetBtn.onclick = async () => {
+  try {
+    await sendPasswordResetEmail(auth, resetEmail.value);
+    alert("重設密碼信已寄出");
+    showLogin();
+  } catch (e) {
+    alert(e.message);
+  }
+};
+</script>
+
+</body>
+</html>

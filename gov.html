@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<title>政府人員｜路見不平通報系統</title>
+<style>
+  body {
+    font-family: Arial;
+    max-width: 900px;
+    margin: 30px auto;
+  }
+  header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  button {
+    padding: 8px 14px;
+    cursor: pointer;
+    margin-right: 8px;
+  }
+  .card {
+    border: 1px solid #ccc;
+    padding: 15px;
+    margin-top: 15px;
+  }
+  .actions button {
+    margin-bottom: 8px;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h2>政府人員後台</h2>
+  <button id="logoutBtn">登出</button>
+</header>
+
+<div class="card">
+  <p><strong>登入者：</strong><span id="userEmail">載入中...</span></p>
+  <p><strong>身分：</strong>政府人員</p>
+</div>
+
+<div class="card actions">
+  <h3>案件管理</h3>
+  <button id="allReportsBtn">查看所有通報</button>
+  <button id="assignReportBtn">指派案件給負責單位</button>
+  <button id="updateStatusBtn">更新案件狀態</button>
+</div>
+
+<div class="card actions">
+  <h3>分析與地圖</h3>
+  <button id="mapBtn">檢視案件分布（地圖）</button>
+  <button id="statsBtn">產生案件統計報表</button>
+</div>
+
+<div class="card">
+  <h3>公告</h3>
+  <p>請依案件優先順序進行指派，並即時更新狀態。</p>
+</div>
+
+<!-- 🔐 登入守門 + 角色導頁（一定要有） -->
+<script type="module" src="auth-guard.js"></script>
+
+<script type="module">
+import { getAuth, onAuthStateChanged, signOut } from
+  "https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js";
+
+const auth = getAuth();
+
+/* ===== 顯示登入者 Email ===== */
+onAuthStateChanged(auth, (user) => {
+  if (user) {
+    document.getElementById("userEmail").innerText = user.email;
+  }
+});
+
+/* ===== 登出 ===== */
+logoutBtn.onclick = async () => {
+  await signOut(auth);
+  location.href = "auth.html";
+};
+
+/* ===== 功能按鈕（目前先佔位） ===== */
+allReportsBtn.onclick = () => {
+  alert("下一步：政府人員查看所有通報（Firestore 查詢）");
+};
+
+assignReportBtn.onclick = () => {
+  alert("下一步：指派案件給廠商 / 單位");
+};
+
+updateStatusBtn.onclick = () => {
+  alert("下一步：更新案件狀態（submitted / assigned / processing / completed）");
+};
+
+mapBtn.onclick = () => {
+  alert("下一步：案件地圖（Google Maps / Mapbox）");
+};
+
+statsBtn.onclick = () => {
+  alert("下一步：案件統計報表");
+};
+</script>
+
+</body>
+</html>
