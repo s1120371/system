@@ -2,11 +2,11 @@
 <html lang="zh-TW">
 <head>
 <meta charset="UTF-8">
-<title>政府人員｜路見不平通報系統</title>
+<title>政府人員後台｜案件管理</title>
 <style>
   body {
     font-family: Arial;
-    max-width: 900px;
+    max-width: 1100px;
     margin: 30px auto;
   }
   header {
@@ -14,93 +14,385 @@
     justify-content: space-between;
     align-items: center;
   }
-  button {
-    padding: 8px 14px;
-    cursor: pointer;
-    margin-right: 8px;
+  header button {
+    width: auto;
+    padding: 6px 12px;
   }
   .card {
     border: 1px solid #ccc;
     padding: 15px;
-    margin-top: 15px;
+    margin-top: 20px;
+    border-radius: 6px;
   }
-  .actions button {
-    margin-bottom: 8px;
+  .card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 10px;
+  }
+  th, td {
+    border-bottom: 1px solid #ddd;
+    padding: 8px;
+    text-align: left;
+  }
+  th {
+    background: #f5f5f5;
+  }
+  .urgent {
+    color: #e74c3c;
+    font-weight: bold;
+  }
+  #map {
+    width: 100%;
+    height: 300px;
+    margin-top: 10px;
+  }
+  .map-info {
+    text-align: center;
+    margin-top: 8px;
+    font-size: 14px;
+    color: #555;
+  }
+  .map-legend {
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+    margin-top: 6px;
+    font-size: 14px;
+  }
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    opacity: 0.6;
+    user-select: none;
+  }
+  .legend-item.active {
+    opacity: 1;
+    font-weight: bold;
+  }
+  .map-legend img {
+    width: 18px;
+    height: 18px;
+  }
+  select {
+    padding: 6px;
   }
 </style>
 </head>
 <body>
 
 <header>
-  <h2>政府人員後台</h2>
+  <h2>政府人員案件管理</h2>
   <button id="logoutBtn">登出</button>
 </header>
 
+<!-- 登入資訊 -->
 <div class="card">
   <p><strong>登入者：</strong><span id="userEmail">載入中...</span></p>
   <p><strong>身分：</strong>政府人員</p>
 </div>
 
-<div class="card actions">
-  <h3>案件管理</h3>
-  <button id="allReportsBtn">查看所有通報</button>
-  <button id="assignReportBtn">指派案件給負責單位</button>
-  <button id="updateStatusBtn">更新案件狀態</button>
-</div>
-
-<div class="card actions">
-  <h3>分析與地圖</h3>
-  <button id="mapBtn">檢視案件分布（地圖）</button>
-  <button id="statsBtn">產生案件統計報表</button>
-</div>
-
+<!-- ===== 地圖 ===== -->
 <div class="card">
-  <h3>公告</h3>
-  <p>請依案件優先順序進行指派，並即時更新狀態。</p>
+  <h3>案件通報地圖</h3>
+
+  <div id="map"></div>
+
+  <div class="map-info">
+    <span id="reportCount">載入中...</span>
+  </div>
+
+  <!-- 點擊式圖例 -->
+  <div class="map-legend">
+    <span class="legend-item" data-status="submitted">
+      <img src="http://maps.google.com/mapfiles/ms/icons/red-dot.png">
+      尚未處理
+    </span>
+    <span class="legend-item" data-status="processing">
+      <img src="http://maps.google.com/mapfiles/ms/icons/yellow-dot.png">
+      處理中
+    </span>
+    <span class="legend-item" data-status="completed">
+      <img src="http://maps.google.com/mapfiles/ms/icons/green-dot.png">
+      已完成
+    </span>
+  </div>
 </div>
 
-<!-- 🔐 登入守門 + 角色導頁（一定要有） -->
+<!-- ===== 案件清單 ===== -->
+<div class="card">
+  <div class="card-header">
+    <h3>案件清單</h3>
+    <div>
+      <label>篩選狀態：</label>
+      <select id="statusFilter">
+        <option value="all">全部</option>
+        <option value="submitted">尚未處理</option>
+        <option value="processing">處理中</option>
+        <option value="completed">已完成</option>
+      </select>
+    </div>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th>標題</th>
+        <th>嚴重程度</th>
+        <th>狀態</th>
+        <th>建立時間</th>
+        <th>操作</th>
+      </tr>
+    </thead>
+    <tbody id="reportTable">
+      <tr><td colspan="5">載入中...</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- 🔐 登入守門 -->
 <script type="module" src="auth-guard.js"></script>
 
+<!-- ================= Firebase ================= -->
 <script type="module">
-import { getAuth, onAuthStateChanged, signOut } from
+import { initializeApp } from
+  "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+import {
+  getAuth,
+  onAuthStateChanged,
+  signOut
+} from
   "https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js";
+import {
+  getFirestore,
+  collection,
+  getDocs
+} from
+  "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
 
-const auth = getAuth();
+/* Firebase 設定 */
+const firebaseConfig = {
+  apiKey: "AIzaSyDQziEhhw0dPu_io9sfWT-a3sADgIKFSd4",
+  authDomain: "system-b4d2d.firebaseapp.com",
+  projectId: "system-b4d2d",
 
-/* ===== 顯示登入者 Email ===== */
-onAuthStateChanged(auth, (user) => {
-  if (user) {
-    document.getElementById("userEmail").innerText = user.email;
-  }
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+
+const tableBody = document.getElementById("reportTable");
+
+window.__allReports = [];
+window.__mapReady = false;
+
+/* ===== 嚴重程度排序（作法一） ===== */
+function sortBySeverity(reports) {
+  const order = { urgent: 0, normal: 1 };
+  return [...reports].sort(
+    (a, b) => (order[a.severity] ?? 99) - (order[b.severity] ?? 99)
+  );
+}
+
+/* 登入後載入 */
+onAuthStateChanged(auth, async (user) => {
+  if (!user) return;
+  userEmail.innerText = user.email;
+  await loadAllReports();
+  window.__mapReady = true;
 });
 
-/* ===== 登出 ===== */
+/* 登出 */
 logoutBtn.onclick = async () => {
   await signOut(auth);
   location.href = "auth.html";
 };
 
-/* ===== 功能按鈕（目前先佔位） ===== */
-allReportsBtn.onclick = () => {
-  alert("下一步：政府人員查看所有通報（Firestore 查詢）");
+/* 載入所有案件 */
+async function loadAllReports() {
+  window.__allReports = [];
+  const snap = await getDocs(collection(db, "reports"));
+
+  let submitted = 0, processing = 0, completed = 0;
+
+  snap.forEach(docSnap => {
+    const r = docSnap.data();
+    if (r.status === "submitted") submitted++;
+    else if (r.status === "processing") processing++;
+    else if (r.status === "completed") completed++;
+    window.__allReports.push({ id: docSnap.id, ...r });
+  });
+
+  renderTable(sortBySeverity(window.__allReports));
+
+  reportCount.innerText =
+    `共 ${window.__allReports.length} 件（送出 ${submitted} / 處理中 ${processing} / 完成 ${completed}）`;
+}
+
+/* 畫表格 */
+function renderTable(reports) {
+  tableBody.innerHTML = "";
+
+  if (reports.length === 0) {
+    tableBody.innerHTML =
+      `<tr><td colspan="5">沒有符合條件的案件</td></tr>`;
+    return;
+  }
+
+  reports.forEach(r => {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${r.title}</td>
+      <td class="${r.severity === "urgent" ? "urgent" : ""}">
+        ${r.severity === "urgent" ? "緊急" : "一般"}
+      </td>
+      <td>${statusText(r.status)}</td>
+      <td>${formatDate(r.createdAt)}</td>
+      <td>
+        <a href="report-detail.html?id=${r.id}">查看</a>
+      </td>
+    `;
+    tableBody.appendChild(tr);
+  });
+}
+
+/* 下拉選單篩選（含排序 + 地圖同步） */
+statusFilter.onchange = () => {
+  clearLegend();
+  applyFilter(statusFilter.value);
 };
 
-assignReportBtn.onclick = () => {
-  alert("下一步：指派案件給廠商 / 單位");
-};
+/* ===== 點擊圖例篩選 ===== */
+let activeLegend = null;
 
-updateStatusBtn.onclick = () => {
-  alert("下一步：更新案件狀態（submitted / assigned / processing / completed）");
-};
+document.querySelectorAll(".legend-item").forEach(item => {
+  item.onclick = () => {
+    const status = item.dataset.status;
 
-mapBtn.onclick = () => {
-  alert("下一步：案件地圖（Google Maps / Mapbox）");
-};
+    if (activeLegend === status) {
+      clearLegend();
+      statusFilter.value = "all";
+      applyFilter("all");
+      return;
+    }
 
-statsBtn.onclick = () => {
-  alert("下一步：案件統計報表");
-};
+    activeLegend = status;
+    document.querySelectorAll(".legend-item")
+      .forEach(i => i.classList.remove("active"));
+    item.classList.add("active");
+
+    statusFilter.value = status;
+    applyFilter(status);
+  };
+});
+
+function clearLegend() {
+  activeLegend = null;
+  document.querySelectorAll(".legend-item")
+    .forEach(i => i.classList.remove("active"));
+}
+
+/* 套用篩選（排序後顯示） */
+function applyFilter(status) {
+  const filtered =
+    status === "all"
+      ? window.__allReports
+      : window.__allReports.filter(r => r.status === status);
+
+  const sorted = sortBySeverity(filtered);
+
+  renderTable(sorted);
+  renderMapMarkers(
+    sorted.filter(r => r.latitude != null)
+  );
+}
+
+/* 工具 */
+function statusText(s) {
+  return s === "submitted" ? "尚未處理"
+       : s === "processing" ? "處理中"
+       : s === "completed" ? "已完成"
+       : s;
+}
+function formatDate(ts) {
+  return ts ? ts.toDate().toLocaleString("zh-TW") : "";
+}
+</script>
+
+<!-- ================= Google Maps ================= -->
+<script>
+let govMap;
+let govMarkers = [];
+
+function initGovMap() {
+  const wait = setInterval(() => {
+    if (window.__mapReady) {
+      clearInterval(wait);
+      drawGovMap();
+    }
+  }, 100);
+}
+
+function drawGovMap() {
+  const reports = window.__allReports.filter(
+    r => r.latitude != null && r.longitude != null
+  );
+
+  const center = reports.length
+    ? { lat: Number(reports[0].latitude), lng: Number(reports[0].longitude) }
+    : { lat: 25.0478, lng: 121.5170 };
+
+  govMap = new google.maps.Map(document.getElementById("map"), {
+    center,
+    zoom: 12
+  });
+
+  renderMapMarkers(reports);
+}
+
+function renderMapMarkers(reports) {
+  govMarkers.forEach(m => m.setMap(null));
+  govMarkers = [];
+
+  reports.forEach(r => {
+    const icon =
+      r.status === "submitted"
+        ? "http://maps.google.com/mapfiles/ms/icons/red-dot.png"
+        : r.status === "processing"
+        ? "http://maps.google.com/mapfiles/ms/icons/yellow-dot.png"
+        : "http://maps.google.com/mapfiles/ms/icons/green-dot.png";
+
+    const marker = new google.maps.Marker({
+      map: govMap,
+      position: {
+        lat: Number(r.latitude),
+        lng: Number(r.longitude)
+      },
+      icon,
+      title: r.title
+    });
+
+    marker.addListener("click", () => {
+      location.href = `report-detail.html?id=${r.id}`;
+    });
+
+    govMarkers.push(marker);
+  });
+}
+</script>
+
+<script
+  src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDWncU5_3lao2CkDNUWf9llEMDywLUBmTs&callback=initGovMap"
+  async defer>
 </script>
 
 </body>

@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<title>案件通報地圖</title>
+<style>
+  body {
+    margin: 0;
+    font-family: Arial;
+  }
+  header {
+    padding: 10px 20px;
+    border-bottom: 1px solid #ccc;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  #map {
+    width: 100%;
+    height: calc(100vh - 60px);
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h2>案件通報地圖</h2>
+  <button onclick="history.back()">返回</button>
+</header>
+
+<div id="map"></div>
+
+<!-- 🔐 登入守門 -->
+<script type="module" src="auth-guard.js"></script>
+
+<!-- ================== Firebase：只負責「抓資料」 ================== -->
+<script type="module">
+import { initializeApp } from
+  "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+import {
+  getFirestore,
+  collection,
+  getDocs
+} from
+  "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
+
+/* Firebase 設定（一定要和其他頁一致） */
+const firebaseConfig = {
+  apiKey: "AIzaSyDQziEhhw0dPu_io9sfWT-a3sADgIKFSd4",
+  authDomain: "system-b4d2d.firebaseapp.com",
+  projectId: "system-b4d2d"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
+/* 全域資料容器 */
+window.__reports = [];
+window.__reportsReady = false;
+
+/* 取得所有通報 */
+const snap = await getDocs(collection(db, "reports"));
+
+snap.forEach(docSnap => {
+  const data = docSnap.data();
+  window.__reports.push({
+    id: docSnap.id,
+    ...data
+  });
+});
+
+/* ⭐ 關鍵：通知地圖「資料已完成」 */
+window.__reportsReady = true;
+</script>
+
+<!-- ================== Google Maps（非 module） ================== -->
+<script>
+  let map;
+
+  /* Google Maps callback */
+  function initMap() {
+    // 等 Firestore 資料準備好
+    const wait = setInterval(() => {
+      if (window.__reportsReady) {
+        clearInterval(wait);
+        drawMap();
+      }
+    }, 100);
+  }
+
+  function drawMap() {
+    // 若有資料，地圖中心用第一筆案件
+    const first = window.__reports.find(
+      r => r.latitude != null && r.longitude != null
+    );
+
+    const center = first
+      ? { lat: Number(first.latitude), lng: Number(first.longitude) }
+      : { lat: 25.0478, lng: 121.5170 }; // fallback 台北
+
+    map = new google.maps.Map(document.getElementById("map"), {
+      center,
+      zoom: 14
+    });
+
+    window.__reports.forEach(r => {
+      if (r.latitude == null || r.longitude == null) return;
+
+      const marker = new google.maps.Marker({
+        position: {
+          lat: Number(r.latitude),
+          lng: Number(r.longitude)
+        },
+        map,
+        title: r.title,
+        icon: r.severity === "urgent"
+          ? "http://maps.google.com/mapfiles/ms/icons/red-dot.png"
+          : "http://maps.google.com/mapfiles/ms/icons/green-dot.png"
+      });
+
+      const info = new google.maps.InfoWindow({
+        content: `
+          <div style="max-width:220px">
+            <strong>${r.title}</strong><br>
+            嚴重程度：${r.severity === "urgent" ? "緊急" : "一般"}<br>
+            狀態：${statusText(r.status)}<br>
+            <a href="report-detail.html?id=${r.id}">
+              查看詳情
+            </a>
+          </div>
+        `
+      });
+
+      marker.addListener("click", () => {
+        info.open(map, marker);
+      });
+    });
+  }
+
+  function statusText(status) {
+    switch (status) {
+      case "submitted": return "已送出";
+      case "processing": return "處理中";
+      case "completed": return "已完成";
+      default: return status;
+    }
+  }
+</script>
+
+<!-- 🔑 Google Maps API（請換成你自己的 Key） -->
+<script
+  src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDWncU5_3lao2CkDNUWf9llEMDywLUBmTs&callback=initMap"
+  async
+  defer>
+</script>
+
+</body>
+</html>

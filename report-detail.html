@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<title>通報詳情｜路見不平通報系統</title>
+<style>
+  body {
+    font-family: Arial;
+    max-width: 800px;
+    margin: 30px auto;
+  }
+  header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  header button {
+    width: auto;
+    padding: 6px 12px;
+  }
+  img {
+    width: 100%;
+    max-height: 350px;
+    object-fit: cover;
+    border-radius: 8px;
+    margin-top: 10px;
+  }
+  .card {
+    border: 1px solid #ccc;
+    padding: 15px;
+    margin-top: 20px;
+    border-radius: 6px;
+  }
+  .badge.urgent {
+    color: #e74c3c;
+    font-weight: bold;
+  }
+  .badge.normal {
+    color: #2c3e50;
+  }
+  select, input[type="file"], button {
+    width: 100%;
+    padding: 8px;
+    margin-top: 8px;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h2>通報詳情</h2>
+  <button onclick="history.back()">返回</button>
+</header>
+
+<div id="content">載入中...</div>
+
+<!-- ===== 政府人員操作 ===== -->
+<div class="card" id="govActions" style="display:none;">
+  <h3>政府人員操作</h3>
+
+  <label>更新案件狀態</label>
+  <select id="statusSelect">
+    <option value="submitted">已送出</option>
+    <option value="processing">處理中</option>
+    <option value="completed">已完成</option>
+  </select>
+
+  <label>指派廠商</label>
+  <select id="vendorSelect">
+    <option value="">載入廠商中...</option>
+  </select>
+
+  <button id="assignVendorBtn">指派案件給廠商</button>
+</div>
+
+<!-- ===== 廠商施工回報 ===== -->
+<div class="card" id="vendorActions" style="display:none;">
+  <h3>施工回報（廠商）</h3>
+
+  <label>施工前照片</label>
+  <input type="file" id="beforeImage">
+
+  <label>施工後照片</label>
+  <input type="file" id="afterImage">
+
+  <button id="submitWorkBtn">回報施工完成</button>
+</div>
+
+<!-- 🔐 登入守門 -->
+<script type="module" src="auth-guard.js"></script>
+
+<script type="module">
+import { initializeApp } from
+  "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+import { getAuth, onAuthStateChanged } from
+  "https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js";
+import {
+  getFirestore,
+  doc,
+  getDoc,
+  updateDoc,
+  collection,
+  getDocs,
+  serverTimestamp
+} from
+  "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
+
+/* ===== Firebase ===== */
+const firebaseConfig = {
+  apiKey: "AIzaSyDQziEhhw0dPu_io9sfWT-a3sADgIKFSd4",
+  authDomain: "system-b4d2d.firebaseapp.com",
+  projectId: "system-b4d2d",
+
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+
+/* ===== Cloudinary ===== */
+const CLOUD_NAME = "dntuqyn7t";
+const UPLOAD_PRESET = "report_images";
+
+/* ===== URL 參數 ===== */
+const reportId = new URLSearchParams(location.search).get("id");
+if (!reportId) throw new Error("Missing report id");
+
+let currentUserRole = null;
+
+/* ===== 角色判斷 ===== */
+onAuthStateChanged(auth, async (user) => {
+  if (!user) return;
+
+  const snap = await getDoc(doc(db, "users", user.uid));
+  if (!snap.exists()) return;
+
+  currentUserRole = snap.data().role;
+
+  if (currentUserRole === "government") {
+    govActions.style.display = "block";
+    loadVendors();
+  }
+
+  if (currentUserRole === "vendor") {
+    vendorActions.style.display = "block";
+  }
+});
+
+/* ===== 載入案件 ===== */
+async function loadReport() {
+  const snap = await getDoc(doc(db, "reports", reportId));
+  if (!snap.exists()) {
+    content.innerHTML = "<p>案件不存在</p>";
+    return;
+  }
+
+  const r = snap.data();
+
+  content.innerHTML = `
+    <div class="card">
+      <h3>${r.title}</h3>
+      <p class="badge ${r.severity}">
+        嚴重程度：${r.severity === "urgent" ? "緊急" : "一般"}
+      </p>
+      <p>狀態：${statusText(r.status)}</p>
+      <p>描述：${r.description}</p>
+      <p>GPS：${r.latitude ?? "-"}, ${r.longitude ?? "-"}</p>
+      <img src="${r.imageUrl}">
+      ${r.workBeforeImage ? `<p><strong>施工前</strong></p><img src="${r.workBeforeImage}">` : ""}
+      ${r.workAfterImage ? `<p><strong>施工後</strong></p><img src="${r.workAfterImage}">` : ""}
+      <small>建立時間：${formatDate(r.createdAt)}</small>
+    </div>
+  `;
+
+  statusSelect.value = r.status;
+}
+
+/* ===== 載入廠商 ===== */
+async function loadVendors() {
+  const snap = await getDocs(collection(db, "users"));
+  vendorSelect.innerHTML = `<option value="">請選擇廠商</option>`;
+
+  snap.forEach(docSnap => {
+    const u = docSnap.data();
+    if (u.role === "vendor") {
+      const opt = document.createElement("option");
+      opt.value = docSnap.id;
+      opt.textContent = u.email || docSnap.id;
+      vendorSelect.appendChild(opt);
+    }
+  });
+}
+
+/* ===== 指派案件 ===== */
+assignVendorBtn.onclick = async () => {
+  const vendorId = vendorSelect.value;
+  if (!vendorId) return alert("請選擇廠商");
+
+  await updateDoc(doc(db, "reports", reportId), {
+    status: "processing",
+    assignedVendorId: vendorId,
+    assignedAt: serverTimestamp()
+  });
+
+  alert("案件已指派");
+  location.href = "gov.html";
+};
+
+/* ===== 廠商回報施工 ===== */
+submitWorkBtn.onclick = async () => {
+  try {
+    const beforeFile = beforeImage.files[0];
+    const afterFile = afterImage.files[0];
+    if (!beforeFile || !afterFile) {
+      throw new Error("請上傳施工前與施工後照片");
+    }
+
+    submitWorkBtn.disabled = true;
+    submitWorkBtn.innerText = "上傳中...";
+
+    const beforeUrl = await uploadToCloudinary(beforeFile);
+    const afterUrl = await uploadToCloudinary(afterFile);
+
+    await updateDoc(doc(db, "reports", reportId), {
+      workBeforeImage: beforeUrl,
+      workAfterImage: afterUrl,
+      workUpdatedAt: serverTimestamp(),
+      status: "completed"
+    });
+
+    alert("施工回報完成");
+    location.href = "vendor.html";
+
+  } catch (err) {
+    alert(err.message);
+    submitWorkBtn.disabled = false;
+    submitWorkBtn.innerText = "回報施工完成";
+  }
+};
+
+/* ===== Cloudinary 上傳 ===== */
+async function uploadToCloudinary(file) {
+  const fd = new FormData();
+  fd.append("file", file);
+  fd.append("upload_preset", UPLOAD_PRESET);
+
+  const res = await fetch(
+    `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`,
+    { method: "POST", body: fd }
+  );
+
+  const data = await res.json();
+  if (!data.secure_url) throw new Error("圖片上傳失敗");
+  return data.secure_url;
+}
+
+/* ===== 工具 ===== */
+function statusText(s) {
+  return s === "submitted" ? "已送出"
+       : s === "processing" ? "處理中"
+       : s === "completed" ? "已完成"
+       : s;
+}
+
+function formatDate(ts) {
+  return ts ? ts.toDate().toLocaleString("zh-TW") : "";
+}
+
+loadReport();
+</script>
+
+</body>
+</html>

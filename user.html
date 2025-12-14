@@ -2,11 +2,11 @@
 <html lang="zh-TW">
 <head>
 <meta charset="UTF-8">
-<title>一般使用者｜路見不平通報系統</title>
+<title>一般使用者首頁｜路見不平通報系統</title>
 <style>
   body {
     font-family: Arial;
-    max-width: 800px;
+    max-width: 900px;
     margin: 30px auto;
   }
   header {
@@ -14,14 +14,43 @@
     justify-content: space-between;
     align-items: center;
   }
-  button {
-    padding: 8px 14px;
-    cursor: pointer;
+  header button {
+    width: auto;
+    padding: 6px 12px;
   }
   .card {
     border: 1px solid #ccc;
     padding: 15px;
-    margin-top: 15px;
+    margin-top: 20px;
+    border-radius: 6px;
+  }
+  #map {
+    width: 100%;
+    height: 300px;
+    margin-top: 10px;
+  }
+  .map-info {
+    text-align: center;
+    margin-top: 8px;
+    font-size: 14px;
+    color: #555;
+  }
+  .map-legend {
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+    margin-top: 6px;
+    font-size: 14px;
+    color: #555;
+  }
+  .map-legend span {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .map-legend img {
+    width: 18px;
+    height: 18px;
   }
 </style>
 </head>
@@ -32,53 +61,176 @@
   <button id="logoutBtn">登出</button>
 </header>
 
+<!-- 使用者資訊 -->
 <div class="card">
   <p><strong>登入者：</strong><span id="userEmail">載入中...</span></p>
   <p><strong>身分：</strong>一般民眾</p>
 </div>
 
+<!-- 功能 -->
 <div class="card">
   <h3>通報功能</h3>
   <button id="createReportBtn">新增通報</button>
   <button id="myReportsBtn">查看我的通報</button>
+  <button id="allReportsBtn">查詢所有通報</button>
 </div>
 
+<!-- ===== 案件通報地圖 ===== -->
 <div class="card">
-  <h3>系統公告</h3>
-  <p>請善用通報功能，避免惡意或重複通報。</p>
+  <h3>案件通報地圖</h3>
+
+  <div id="map"></div>
+
+  <div class="map-info">
+    <span id="reportCount">載入中...</span>
+  </div>
+
+  <!-- ⭐ 顏色說明（給使用者看） -->
+  <div class="map-legend">
+    <span>
+      <img src="http://maps.google.com/mapfiles/ms/icons/red-dot.png">
+      緊急通報
+    </span>
+    <span>
+      <img src="http://maps.google.com/mapfiles/ms/icons/green-dot.png">
+      一般通報
+    </span>
+  </div>
 </div>
 
-<!-- 🔐 登入守門 + 角色導頁 -->
+<!-- 🔐 登入守門 -->
 <script type="module" src="auth-guard.js"></script>
 
+<!-- ================= Firebase ================= -->
 <script type="module">
-import { getAuth, signOut, onAuthStateChanged } from
+import { initializeApp } from
+  "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+import {
+  getAuth,
+  onAuthStateChanged,
+  signOut
+} from
   "https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js";
+import {
+  getFirestore,
+  collection,
+  getDocs
+} from
+  "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
 
-const auth = getAuth();
+/* Firebase 設定（請與其他頁一致） */
+const firebaseConfig = {
+  apiKey: "AIzaSyDQziEhhw0dPu_io9sfWT-a3sADgIKFSd4",
+  authDomain: "system-b4d2d.firebaseapp.com",
+  projectId: "system-b4d2d",
 
-/* ===== 顯示使用者 Email ===== */
-onAuthStateChanged(auth, (user) => {
-  if (user) {
-    document.getElementById("userEmail").innerText = user.email;
-  }
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+
+window.__homeReports = [];
+window.__homeReportsReady = false;
+
+/* 登入後載入 */
+onAuthStateChanged(auth, async (user) => {
+  if (!user) return;
+
+  userEmail.innerText = user.email;
+  await loadReports();
+  window.__homeReportsReady = true;
 });
 
-/* ===== 登出 ===== */
+/* 登出 */
 logoutBtn.onclick = async () => {
   await signOut(auth);
   location.href = "auth.html";
 };
 
-/* ===== 新增通報 ===== */
-createReportBtn.onclick = () => {
-  location.href = "report-create.html";
-};
+/* 功能按鈕 */
+createReportBtn.onclick = () => location.href = "report-create.html";
+myReportsBtn.onclick = () => location.href = "my-reports.html";
+allReportsBtn.onclick = () => location.href = "all-reports.html";
 
-/* ===== 我的通報 ===== */
-myReportsBtn.onclick = () => {
-  alert("下一步：我的通報列表");
-};
+/* 載入所有案件（只讀） */
+async function loadReports() {
+  window.__homeReports = [];
+
+  const snap = await getDocs(collection(db, "reports"));
+  let urgent = 0, normal = 0;
+
+  snap.forEach(docSnap => {
+    const r = docSnap.data();
+    if (r.latitude == null || r.longitude == null) return;
+
+    if (r.severity === "urgent") urgent++;
+    else normal++;
+
+    window.__homeReports.push({
+      id: docSnap.id,
+      ...r
+    });
+  });
+
+  reportCount.innerText =
+    `共 ${urgent + normal} 件通報（緊急 ${urgent} / 一般 ${normal}）`;
+}
 </script>
+
+<!-- ================= Google Maps ================= -->
+<script>
+let homeMap;
+
+function initHomeMap() {
+  const wait = setInterval(() => {
+    if (window.__homeReportsReady) {
+      clearInterval(wait);
+      drawHomeMap();
+    }
+  }, 100);
+}
+
+function drawHomeMap() {
+  const reports = window.__homeReports;
+
+  const center = reports.length
+    ? { lat: Number(reports[0].latitude), lng: Number(reports[0].longitude) }
+    : { lat: 25.0478, lng: 121.5170 };
+
+  homeMap = new google.maps.Map(document.getElementById("map"), {
+    center,
+    zoom: 13
+  });
+
+  reports.forEach(r => {
+    const icon =
+      r.severity === "urgent"
+        ? "http://maps.google.com/mapfiles/ms/icons/red-dot.png"
+        : "http://maps.google.com/mapfiles/ms/icons/green-dot.png";
+
+    const marker = new google.maps.Marker({
+      map: homeMap,
+      position: {
+        lat: Number(r.latitude),
+        lng: Number(r.longitude)
+      },
+      icon,
+      title: r.title
+    });
+
+    marker.addListener("click", () => {
+      location.href = `report-detail.html?id=${r.id}`;
+    });
+  });
+}
+</script>
+
+<script
+  src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDWncU5_3lao2CkDNUWf9llEMDywLUBmTs&callback=initHomeMap"
+  async
+  defer>
+</script>
+
 </body>
 </html>

@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<title>所有通報｜路見不平通報系統</title>
+<style>
+  body {
+    font-family: Arial;
+    max-width: 1000px;
+    margin: 30px auto;
+  }
+  header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  button {
+    padding: 8px 14px;
+    cursor: pointer;
+  }
+  .card {
+    border: 1px solid #ccc;
+    padding: 15px;
+    margin-top: 20px;
+    border-radius: 6px;
+  }
+  .report {
+    display: flex;
+    gap: 15px;
+    cursor: pointer;
+  }
+  .report img {
+    width: 160px;
+    height: 110px;
+    object-fit: cover;
+    border-radius: 6px;
+  }
+  .report-info {
+    flex: 1;
+  }
+  .severity.urgent {
+    color: #e74c3c;
+    font-weight: bold;
+  }
+  .severity.normal {
+    color: #2c3e50;
+  }
+  .status.submitted { color: #555; }
+  .status.processing { color: #f39c12; }
+  .status.completed { color: #27ae60; }
+</style>
+</head>
+<body>
+
+<header>
+  <h2>所有通報</h2>
+  <button onclick="history.back()">返回</button>
+</header>
+
+<div id="list">載入中...</div>
+
+<!-- 🔐 登入守門 -->
+<script type="module" src="auth-guard.js"></script>
+
+<script type="module">
+import { initializeApp } from
+  "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+import { getAuth } from
+  "https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js";
+import {
+  getFirestore,
+  collection,
+  query,
+  orderBy,
+  getDocs
+} from
+  "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
+
+/* ===== Firebase 設定 ===== */
+const firebaseConfig = {
+  apiKey: "AIzaSyDQziEhhw0dPu_io9sfWT-a3sADgIKFSd4",
+  authDomain: "system-b4d2d.firebaseapp.com",
+  projectId: "system-b4d2d"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+
+/* ===== 載入所有通報 ===== */
+async function loadAllReports() {
+  const q = query(
+    collection(db, "reports"),
+    orderBy("createdAt", "desc")
+  );
+
+  const snap = await getDocs(q);
+
+  if (snap.empty) {
+    list.innerHTML = "<p>目前尚無通報資料</p>";
+    return;
+  }
+
+  list.innerHTML = "";
+
+  snap.forEach(docSnap => {
+    const r = docSnap.data();
+
+    const div = document.createElement("div");
+    div.className = "card report";
+
+    div.onclick = () => {
+      location.href = `report-detail.html?id=${docSnap.id}`;
+    };
+
+    div.innerHTML = `
+      <img src="${r.imageUrl}" alt="通報照片">
+      <div class="report-info">
+        <h3>${r.title}</h3>
+        <p>
+          <span class="severity ${r.severity}">
+            嚴重程度：${r.severity === "urgent" ? "緊急" : "一般"}
+          </span>
+        </p>
+        <p class="status ${r.status}">
+          狀態：${statusText(r.status)}
+        </p>
+        <small>${formatDate(r.createdAt)}</small>
+      </div>
+    `;
+
+    list.appendChild(div);
+  });
+}
+
+function statusText(status) {
+  switch (status) {
+    case "submitted": return "已送出";
+    case "processing": return "處理中";
+    case "completed": return "已完成";
+    default: return status;
+  }
+}
+
+function formatDate(ts) {
+  if (!ts) return "";
+  return ts.toDate().toLocaleString("zh-TW");
+}
+
+loadAllReports();
+</script>
+
+</body>
+</html>

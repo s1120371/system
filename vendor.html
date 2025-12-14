@@ -2,11 +2,11 @@
 <html lang="zh-TW">
 <head>
 <meta charset="UTF-8">
-<title>施工廠商｜路見不平通報系統</title>
+<title>廠商後台｜指派案件</title>
 <style>
   body {
     font-family: Arial;
-    max-width: 900px;
+    max-width: 1100px;
     margin: 30px auto;
   }
   header {
@@ -14,98 +14,275 @@
     justify-content: space-between;
     align-items: center;
   }
-  button {
-    padding: 8px 14px;
-    cursor: pointer;
-    margin-right: 8px;
+  header button {
+    width: auto;
+    padding: 6px 12px;
   }
   .card {
     border: 1px solid #ccc;
     padding: 15px;
-    margin-top: 15px;
+    margin-top: 20px;
+    border-radius: 6px;
   }
-  .actions button {
-    margin-bottom: 8px;
+  .card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 10px;
+  }
+  th, td {
+    border-bottom: 1px solid #ddd;
+    padding: 8px;
+    text-align: left;
+  }
+  th {
+    background: #f5f5f5;
+  }
+  .urgent {
+    color: #e74c3c;
+    font-weight: bold;
+  }
+  #map {
+    width: 100%;
+    height: 300px;
+    margin-top: 10px;
+  }
+  .map-info {
+    text-align: center;
+    margin-top: 8px;
+    font-size: 14px;
+    color: #555;
   }
 </style>
 </head>
 <body>
 
 <header>
-  <h2>施工廠商後台</h2>
+  <h2>廠商案件管理</h2>
   <button id="logoutBtn">登出</button>
 </header>
 
+<!-- 登入資訊 -->
 <div class="card">
   <p><strong>登入者：</strong><span id="userEmail">載入中...</span></p>
-  <p><strong>身分：</strong>施工廠商</p>
+  <p><strong>身分：</strong>廠商</p>
 </div>
 
-<div class="card actions">
-  <h3>我的案件</h3>
-  <button id="myReportsBtn">查看指派案件</button>
-  <button id="acceptReportBtn">受理案件</button>
-</div>
-
-<div class="card actions">
-  <h3>施工管理</h3>
-  <button id="assignWorkerBtn">安排施工人員</button>
-  <button id="uploadBeforeBtn">上傳施工前照片</button>
-  <button id="uploadAfterBtn">上傳施工後照片</button>
-  <button id="updateStatusBtn">更新案件狀態</button>
-</div>
-
+<!-- ===== 小地圖 ===== -->
 <div class="card">
-  <h3>注意事項</h3>
-  <p>請於施工前後確實上傳照片，並即時更新案件狀態。</p>
+  <div class="card-header">
+    <h3>我的施工案件地圖</h3>
+  </div>
+
+  <div id="map"></div>
+
+  <div class="map-info">
+    <span id="reportCount">載入中...</span>
+  </div>
 </div>
 
-<!-- 🔐 登入守門 + 角色導頁 -->
+<!-- ===== 指派案件列表 ===== -->
+<div class="card">
+  <h3>指派給我的案件（緊急 → 一般）</h3>
+
+  <table>
+    <thead>
+      <tr>
+        <th>標題</th>
+        <th>嚴重程度</th>
+        <th>狀態</th>
+        <th>指派時間</th>
+        <th>操作</th>
+      </tr>
+    </thead>
+    <tbody id="reportTable">
+      <tr>
+        <td colspan="5">載入中...</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- 🔐 登入守門 -->
 <script type="module" src="auth-guard.js"></script>
 
+<!-- ================= Firebase ================= -->
 <script type="module">
-import { getAuth, onAuthStateChanged, signOut } from
+import { initializeApp } from
+  "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+import {
+  getAuth,
+  onAuthStateChanged,
+  signOut
+} from
   "https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js";
+import {
+  getFirestore,
+  collection,
+  query,
+  where,
+  getDocs
+} from
+  "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
 
-const auth = getAuth();
+/* Firebase 設定（與其他頁一致） */
+const firebaseConfig = {
+  apiKey: "AIzaSyDQziEhhw0dPu_io9sfWT-a3sADgIKFSd4",
+  authDomain: "system-b4d2d.firebaseapp.com",
+  projectId: "system-b4d2d"
+};
 
-/* ===== 顯示登入者 Email ===== */
-onAuthStateChanged(auth, (user) => {
-  if (user) {
-    document.getElementById("userEmail").innerText = user.email;
-  }
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+
+const tableBody = document.getElementById("reportTable");
+
+/* ===== 地圖共用 ===== */
+window.__mapReports = [];
+window.__mapReady = false;
+
+/* ===== 嚴重程度排序（urgent → normal） ===== */
+function sortBySeverity(reports) {
+  const order = { urgent: 0, normal: 1 };
+  return [...reports].sort(
+    (a, b) => (order[a.severity] ?? 99) - (order[b.severity] ?? 99)
+  );
+}
+
+/* 登入後載入 */
+onAuthStateChanged(auth, async (user) => {
+  if (!user) return;
+
+  userEmail.innerText = user.email;
+  await loadMyReports(user.uid);
+  window.__mapReady = true;
 });
 
-/* ===== 登出 ===== */
+/* 登出 */
 logoutBtn.onclick = async () => {
   await signOut(auth);
   location.href = "auth.html";
 };
 
-/* ===== 功能按鈕（目前先佔位） ===== */
-myReportsBtn.onclick = () => {
-  alert("下一步：查詢指派給該廠商的案件（Firestore 查詢）");
-};
+/* 載入指派給我的案件 */
+async function loadMyReports(uid) {
+  tableBody.innerHTML =
+    `<tr><td colspan="5">載入中...</td></tr>`;
 
-acceptReportBtn.onclick = () => {
-  alert("下一步：受理案件（更新案件狀態）");
-};
+  window.__mapReports = [];
 
-assignWorkerBtn.onclick = () => {
-  alert("下一步：安排施工人員");
-};
+  const q = query(
+    collection(db, "reports"),
+    where("assignedVendorId", "==", uid)
+  );
 
-uploadBeforeBtn.onclick = () => {
-  alert("下一步：施工前照片上傳（Cloudinary）");
-};
+  const snap = await getDocs(q);
+  tableBody.innerHTML = "";
 
-uploadAfterBtn.onclick = () => {
-  alert("下一步：施工後照片上傳（Cloudinary）");
-};
+  if (snap.empty) {
+    tableBody.innerHTML =
+      `<tr><td colspan="5">目前沒有指派案件</td></tr>`;
+    reportCount.innerText = "共 0 件指派案件";
+    return;
+  }
 
-updateStatusBtn.onclick = () => {
-  alert("下一步：更新案件狀態（processing / completed）");
-};
+  let reports = [];
+
+  snap.forEach(docSnap => {
+    reports.push({
+      id: docSnap.id,
+      ...docSnap.data()
+    });
+  });
+
+  /* ⭐ 嚴重程度排序 */
+  const sorted = sortBySeverity(reports);
+
+  sorted.forEach(r => {
+    window.__mapReports.push(r);
+
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${r.title}</td>
+      <td class="${r.severity === "urgent" ? "urgent" : ""}">
+        ${r.severity === "urgent" ? "緊急" : "一般"}
+      </td>
+      <td>${statusText(r.status)}</td>
+      <td>${formatDate(r.assignedAt)}</td>
+      <td>
+        <a href="report-detail.html?id=${r.id}">查看</a>
+      </td>
+    `;
+    tableBody.appendChild(tr);
+  });
+
+  reportCount.innerText = `共 ${sorted.length} 件指派案件`;
+}
+
+/* 輔助 */
+function statusText(status) {
+  return status === "submitted" ? "已送出"
+       : status === "processing" ? "處理中"
+       : status === "completed" ? "已完成"
+       : status;
+}
+
+function formatDate(ts) {
+  return ts ? ts.toDate().toLocaleString("zh-TW") : "";
+}
+</script>
+
+<!-- ================= Google Maps ================= -->
+<script>
+function initVendorMap() {
+  const wait = setInterval(() => {
+    if (window.__mapReady) {
+      clearInterval(wait);
+      drawVendorMap();
+    }
+  }, 100);
+}
+
+function drawVendorMap() {
+  const reports = window.__mapReports.filter(
+    r => r.latitude != null && r.longitude != null
+  );
+
+  const center = reports.length
+    ? { lat: Number(reports[0].latitude), lng: Number(reports[0].longitude) }
+    : { lat: 25.0478, lng: 121.5170 };
+
+  const map = new google.maps.Map(document.getElementById("map"), {
+    center,
+    zoom: 13
+  });
+
+  reports.forEach(r => {
+    const marker = new google.maps.Marker({
+      map,
+      position: {
+        lat: Number(r.latitude),
+        lng: Number(r.longitude)
+      },
+      icon: "http://maps.google.com/mapfiles/ms/icons/orange-dot.png",
+      title: r.title
+    });
+
+    marker.addListener("click", () => {
+      location.href = `report-detail.html?id=${r.id}`;
+    });
+  });
+}
+</script>
+
+<script
+  src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDWncU5_3lao2CkDNUWf9llEMDywLUBmTs&callback=initVendorMap"
+  async defer>
 </script>
 
 </body>

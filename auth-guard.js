@@ -37,7 +37,10 @@ const ROLE_ALLOWED_PAGES = {
     "user.html",
     "report-create.html",
     "my-reports.html",
-    "report-detail.html"
+    "report-detail.html",
+    "all-reports.html",
+    "report-map.html",
+    "test.html"
   ],
   government: [
     "gov.html",
