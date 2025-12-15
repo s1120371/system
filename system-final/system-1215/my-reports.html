@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<title>我的通報｜路見不平通報系統</title>
+<style>
+  /* 基礎配色與字體設定 - 調整為柔和石板藍 */
+  :root {
+    --primary-color: #3F72AF; /* 柔和石板藍 */
+    --primary-color-dark: #356295;
+    --secondary-color: #6c757d; 
+    --background-color: #f8f9fa; 
+    --card-background: #ffffff; 
+    --text-color: #343a40; 
+    --border-color: #dee2e6;
+    --font-sans: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+
+    /* NEW: 狀態顏色 - 減少強烈背景色 */
+    --status-submitted-text: #6c757d; 
+    --status-submitted-bg: #f8f9fa;
+    --status-assigned-text: var(--primary-color);
+    --status-assigned-bg: #e9f2ff;
+    --status-processing-text: #d49832; /* Darker Amber */
+    --status-processing-bg: #fff8e8;
+    --status-completed-text: white;
+    --status-completed-bg: #28a745; /* Green */
+    
+    /* NEW: 嚴重程度顏色 */
+    --severity-urgent-text: white;
+    --severity-urgent-bg: #dc3545; /* Red */
+    --severity-normal-text: var(--primary-color); /* Soft Slate Blue */
+    --severity-normal-bg: #f8f9fa;
+  }
+
+  body {
+    font-family: var(--font-sans);
+    max-width: 900px;
+    margin: 30px auto;
+    padding: 0 20px;
+    background-color: var(--background-color);
+    color: var(--text-color);
+  }
+
+  /* 頂部標頭 */
+  header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 30px;
+    padding-bottom: 10px;
+    border-bottom: 3px solid var(--primary-color);
+  }
+
+  h2 {
+    font-size: 1.8rem;
+    color: var(--primary-color);
+    margin: 0;
+  }
+
+  /* 返回按鈕 */
+  #backBtn {
+    background-color: var(--secondary-color);
+    color: white;
+    border: none;
+    padding: 10px 18px;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+  }
+  #backBtn:hover {
+    background-color: #5a6268;
+  }
+
+  /* 卡片樣式 (用於通報列表項) */
+  .card {
+    background: var(--card-background);
+    border: 1px solid var(--border-color);
+    padding: 15px;
+    margin-top: 20px;
+    border-radius: 8px; /* 圓弧邊角 */
+    transition: box-shadow 0.3s, transform 0.2s;
+    cursor: pointer; /* 表示可點擊 */
+  }
+  .card:hover {
+    box-shadow: 0 6px 15px rgba(0, 0, 0, 0.1);
+    transform: translateY(-2px);
+  }
+  
+  /* 通報項目佈局 */
+  .report {
+    display: flex;
+    gap: 20px;
+  }
+
+  .report img {
+    width: 150px; /* 圖片尺寸稍大 */
+    min-width: 150px;
+    height: 100px;
+    object-fit: cover;
+    border-radius: 6px;
+  }
+
+  .report-info {
+    flex: 1;
+  }
+  
+  .report-info h3 {
+    margin: 0 0 5px 0;
+    font-size: 1.2rem;
+    color: var(--text-color);
+  }
+
+  .report-info p {
+    margin: 0 0 8px 0;
+    font-size: 0.95rem;
+    color: var(--secondary-color);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: -webkit-box;
+    -webkit-line-clamp: 2; /* 限制描述顯示兩行 */
+    -webkit-box-orient: vertical;
+  }
+  
+  /* 標籤容器 */
+  .tags {
+      margin-top: 10px;
+      display: flex;
+      gap: 10px;
+      align-items: center;
+  }
+  
+  /* 通用標籤樣式 */
+  .tag {
+    display: inline-block;
+    padding: 5px 10px;
+    border-radius: 4px;
+    font-weight: bold;
+    font-size: 0.85rem;
+    line-height: 1;
+    border: 1px solid transparent; /* 增加邊框預設 */
+  }
+  
+  /* 狀態標籤 - 柔和色系 */
+  .status.submitted {
+    background-color: var(--status-submitted-bg);
+    color: var(--status-submitted-text);
+    border-color: #adb5bd; 
+  }
+  .status.assigned {
+    background-color: var(--status-assigned-bg);
+    color: var(--status-assigned-text);
+    border-color: var(--primary-color);
+  }
+  .status.processing {
+    background-color: var(--status-processing-bg);
+    color: var(--status-processing-text);
+    border-color: #ffc107;
+  }
+  .status.completed {
+    background-color: var(--status-completed-bg); /* 強烈背景色 */
+    color: var(--status-completed-text);
+    border-color: var(--status-completed-bg);
+  }
+  
+  /* 嚴重程度標籤 - 柔和與強烈對比 */
+  .severity.urgent {
+    background-color: var(--severity-urgent-bg); /* 強烈背景色 */
+    color: var(--severity-urgent-text);
+    border-color: var(--severity-urgent-bg);
+  }
+  .severity.normal {
+    background-color: var(--severity-normal-bg);
+    color: var(--severity-normal-text);
+    border-color: var(--primary-color); /* 使用主題色邊框 */
+  }
+  
+  /* 日期時間 */
+  small {
+      display: block;
+      margin-top: 5px;
+      color: #999;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h2>我的通報紀錄</h2>
+  <button id="backBtn">首頁</button>
+</header>
+
+<div id="list">
+  </div>
+
+<script type="module" src="auth-guard.js"></script>
+
+<script type="module">
+import { initializeApp } from
+  "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+import { getAuth } from
+  "https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js";
+import {
+  getFirestore,
+  collection,
+  query,
+  where,
+  orderBy,
+  getDocs
+} from
+  "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
+import { onAuthStateChanged } from
+  "https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js";
+
+
+/* ===== Firebase 設定（略） ===== */
+const firebaseConfig = {
+  apiKey: "AIzaSyDQziEhhw0dPu_io9sfWT-a3sADgIKFSd4",
+  authDomain: "system-b4d2d.firebaseapp.com",
+  projectId: "system-b4d2d"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+
+backBtn.onclick = () => history.back();
+
+/* ===== 載入我的通報 ===== */
+async function loadMyReports() {
+  const user = auth.currentUser;
+  if (!user) return;
+
+  const list = document.getElementById("list");
+  list.innerHTML = "<div class=\"card\"><p style='text-align: center;'>載入通報紀錄中...</p></div>";
+
+
+  const q = query(
+    collection(db, "reports"),
+    where("createdBy", "==", user.uid),
+    orderBy("createdAt", "desc")
+  );
+
+  const snap = await getDocs(q);
+
+  if (snap.empty) {
+    list.innerHTML = "<div class=\"card\"><p style='color: var(--secondary-color); text-align: center;'>✅ 恭喜您！尚未有任何通報紀錄。</p></div>";
+    return;
+  }
+
+  list.innerHTML = ""; // 清空載入中的訊息
+
+  snap.forEach(docSnap => {
+    const r = docSnap.data();
+
+    const div = document.createElement("div");
+    div.className = "card report";
+    div.style.cursor = "pointer";
+
+    div.onclick = () => {
+      // 點擊導向詳細頁面
+      location.href = `report-detail.html?id=${docSnap.id}`;
+    };
+    
+    // 嚴重程度標籤文字
+    const severityText = r.severity === "urgent" ? "🚨 緊急" : "一般";
+
+    div.innerHTML = `
+      <img src="${r.imageUrl}" alt="通報照片">
+      <div class="report-info">
+        <h3>${r.title}</h3>
+        <p>${r.description}</p>
+        
+        <div class="tags">
+          <span class="tag severity ${r.severity}">
+            程度：${severityText}
+          </span>
+          <span class="tag status ${r.status}">
+            狀態：${statusText(r.status)}
+          </span>
+        </div>
+        
+        <small>通報時間：${formatDate(r.createdAt)}</small>
+      </div>
+    `;
+
+    list.appendChild(div);
+  });
+}
+
+/* ===== 狀態顯示文字 ===== */
+function statusText(status) {
+  switch (status) {
+    case "submitted": return "已送出 (待處理)";
+    case "assigned": return "已指派"; 
+    case "processing": return "施工中";
+    case "completed": return "已修復";
+    default: return status;
+  }
+}
+
+/* ===== 時間格式 ===== */
+function formatDate(ts) {
+  if (!ts || !ts.toDate) return "時間未知";
+  const d = ts.toDate();
+  return d.toLocaleString("zh-TW");
+}
+
+/* ===== 初始化 ===== */
+onAuthStateChanged(auth, (user) => {
+  if (user) {
+    loadMyReports();
+  }
+});
+</script>
+
+</body>
+</html>

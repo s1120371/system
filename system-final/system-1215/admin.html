@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<title>系統管理員｜路見不平通報系統</title>
+<style>
+  /* 基礎配色與字體設定 - 調整為柔和石板藍與低飽和紅 */
+  :root {
+    --primary-color: #3F72AF; /* 柔和石板藍 (用於卡片標題) */
+    --admin-color: #B22222; /* 低飽和紅 (用於管理員識別) */
+    --secondary-color: #6c757d; 
+    --background-color: #f8f9fa; 
+    --card-background: #ffffff; 
+    --text-color: #343a40; 
+    --border-color: #dee2e6;
+    --font-sans: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  }
+
+  body {
+    font-family: var(--font-sans);
+    max-width: 1100px; /* 寬度稍微放寬以容納表格 */
+    margin: 30px auto;
+    padding: 0 20px;
+    background-color: var(--background-color);
+    color: var(--text-color);
+  }
+
+  /* 頂部標頭 */
+  header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 30px;
+    padding-bottom: 10px;
+    border-bottom: 3px solid var(--admin-color); /* 管理員用低飽和紅色線條 */
+  }
+
+  h2 {
+    font-size: 1.8rem;
+    color: var(--admin-color); /* 管理員用低飽和紅色突顯權限 */
+    margin: 0;
+  }
+
+  /* 登出按鈕 */
+  #logoutBtn {
+    background-color: var(--secondary-color);
+    color: white;
+    border: none;
+    padding: 10px 18px;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+  }
+  #logoutBtn:hover {
+    background-color: #5a6268;
+  }
+
+  /* 卡片樣式 */
+  .card {
+    background: var(--card-background);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 25px;
+    margin-top: 25px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  }
+  
+  .card h3 {
+    margin-top: 0;
+    margin-bottom: 15px;
+    color: var(--primary-color);
+    border-left: 4px solid var(--primary-color);
+    padding-left: 10px;
+    font-size: 1.3rem;
+  }
+  
+  /* 表格樣式優化 */
+  table {
+    width: 100%;
+    border-collapse: separate; 
+    border-spacing: 0;
+    margin-top: 15px;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    overflow: hidden; /* 確保邊框圓角顯示 */
+  }
+  th, td {
+    border-bottom: 1px solid var(--border-color);
+    padding: 12px 15px;
+    text-align: left;
+  }
+  th {
+    background-color: #f5f8fc; /* 淺柔和藍色表頭背景 */
+    color: var(--primary-color);
+    font-weight: bold;
+    text-transform: uppercase;
+  }
+  /* 移除最後一行的底部邊線 */
+  tbody tr:last-child td {
+    border-bottom: none; 
+  }
+
+  /* 操作按鈕組 */
+  .action-buttons button {
+    padding: 8px 15px;
+    border: none;
+    border-radius: 4px; /* 圓弧邊角 */
+    cursor: pointer;
+    font-weight: bold;
+    margin-right: 10px;
+    transition: background-color 0.2s, transform 0.2s;
+    color: white; /* 讓核准/拒絕按鈕的文字顏色是白色 */
+  }
+
+  /* 核准按鈕 (綠色) */
+  .action-buttons .approve-btn {
+    background-color: #28a745;
+  }
+  .action-buttons .approve-btn:hover {
+    background-color: #218838;
+    transform: translateY(-1px);
+  }
+
+  /* 拒絕按鈕 (低飽和紅色) */
+  .action-buttons .reject-btn {
+    background-color: var(--admin-color);
+  }
+  .action-buttons .reject-btn:hover {
+    background-color: #9a1e1e;
+    transform: translateY(-1px);
+  }
+
+  /* 表格載入中/無資料的樣式 */
+  #pendingTable tr td {
+    color: var(--secondary-color);
+    font-style: italic;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h2>🛡️ 系統管理員後台</h2>
+  <button id="logoutBtn">登出</button>
+</header>
+
+<div class="card">
+  <p><strong>👤 登入者：</strong><span id="adminEmail">載入中...</span></p>
+  <p><strong>🌟 身分：</strong>系統管理員</p>
+</div>
+
+<div class="card">
+  <h3>待審核帳號清單</h3>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Email</th>
+        <th>申請身分</th>
+        <th>操作</th>
+      </tr>
+    </thead>
+    <tbody id="pendingTable">
+      <tr>
+        <td colspan="3" style="text-align: center;">載入中...</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<script type="module" src="auth-guard.js"></script>
+
+<script type="module">
+import { getAuth, onAuthStateChanged, signOut } from
+  "https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js";
+import {
+  getFirestore,
+  collection,
+  query,
+  where,
+  getDocs,
+  doc,
+  updateDoc
+} from
+  "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
+
+const auth = getAuth();
+const db = getFirestore();
+
+/* ===== 顯示登入者 Email ===== */
+onAuthStateChanged(auth, (user) => {
+  if (user) {
+    document.getElementById("adminEmail").innerText = user.email;
+  }
+});
+
+/* ===== 登出 ===== */
+logoutBtn.onclick = async () => {
+  await signOut(auth);
+  location.href = "auth.html";
+};
+
+/* ===== 載入待審核帳號 ===== */
+async function loadPendingUsers() {
+  const table = document.getElementById("pendingTable");
+  table.innerHTML = `<tr><td colspan='3' style="text-align: center;">載入中...</td></tr>`;
+
+  const q = query(
+    collection(db, "users"),
+    where("status", "==", "pending")
+  );
+
+  const snap = await getDocs(q);
+
+  if (snap.empty) {
+    table.innerHTML = `<tr><td colspan='3' style="text-align: center; color: var(--secondary-color);">目前沒有待審核帳號。</td></tr>`;
+    return;
+  }
+
+  table.innerHTML = "";
+
+  snap.forEach(docSnap => {
+    const user = docSnap.data();
+    const uid = docSnap.id;
+
+    const roleText =
+      user.role === "vendor_req" ? "施工廠商" :
+      user.role === "gov_req" ? "政府人員" :
+      user.role;
+
+    table.innerHTML += `
+      <tr>
+        <td>${user.email}</td>
+        <td>${roleText}</td>
+        <td class="action-buttons">
+          <button class="approve-btn" onclick="approveUser('${uid}', '${user.role}')">核准</button>
+          <button class="reject-btn" onclick="rejectUser('${uid}')">拒絕</button>
+        </td>
+      </tr>
+    `;
+  });
+}
+
+/* ===== 核准帳號 ===== */
+window.approveUser = async (uid, role) => {
+  let newRole = "";
+
+  if (role === "vendor_req") newRole = "vendor";
+  if (role === "gov_req") newRole = "government";
+
+  if (!newRole) {
+    alert("未知角色");
+    return;
+  }
+
+  await updateDoc(doc(db, "users", uid), {
+    role: newRole,
+    status: "active"
+  });
+
+  alert("已核准帳號");
+  loadPendingUsers();
+};
+
+/* ===== 拒絕帳號 ===== */
+window.rejectUser = async (uid) => {
+  await updateDoc(doc(db, "users", uid), {
+    status: "suspended"
+  });
+
+  alert("已拒絕帳號並停權");
+  loadPendingUsers();
+};
+
+/* ===== 頁面載入時自動載入 ===== */
+loadPendingUsers();
+</script>
+
+</body>
+</html>

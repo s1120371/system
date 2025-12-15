@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<title>通報詳情｜路見不平通報系統</title>
+<style>
+  /* 基礎配色與字體設定 - 統一主題色 */
+  :root {
+    --primary-color: #3F72AF; /* 柔和石板藍 (政府/使用者) */
+    --vendor-color: #FFB650; /* 柔和琥珀色 (廠商) */
+    --secondary-color: #6c757d; 
+    --background-color: #f8f9fa; 
+    --card-background: #ffffff; 
+    --text-color: #343a40; 
+    --border-color: #dee2e6;
+    --font-sans: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    
+    /* NEW: 狀態顏色 */
+    --status-submitted-text: #6c757d; 
+    --status-submitted-bg: #f8f9fa;
+    --status-assigned-text: var(--primary-color);
+    --status-assigned-bg: #e9f2ff;
+    --status-processing-text: #d49832;
+    --status-processing-bg: #fff8e8;
+    --status-completed-text: white;
+    --status-completed-bg: #28a745;
+    
+    /* NEW: 嚴重程度顏色 */
+    --severity-urgent-text: white;
+    --severity-urgent-bg: #dc3545;
+    --severity-normal-text: var(--primary-color);
+    --severity-normal-bg: #f8f9fa;
+  }
+
+  body {
+    font-family: var(--font-sans);
+    max-width: 800px;
+    margin: 30px auto;
+    padding: 0 20px;
+    background-color: var(--background-color);
+    color: var(--text-color);
+  }
+  
+  /* 頂部標頭 */
+  header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 30px;
+    padding-bottom: 10px;
+    border-bottom: 3px solid var(--primary-color);
+  }
+  
+  h2 {
+    font-size: 1.8rem;
+    color: var(--primary-color);
+    margin: 0;
+  }
+  
+  /* 返回按鈕 (統一使用次要顏色) */
+  header button {
+    background-color: var(--secondary-color);
+    color: white;
+    border: none;
+    padding: 10px 18px;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+    width: auto !important;
+    margin: 0;
+  }
+  header button:hover {
+    background-color: #5a6268;
+  }
+
+  /* 卡片樣式 (統一圓弧與陰影) */
+  .card {
+    background: var(--card-background);
+    border: 1px solid var(--border-color);
+    padding: 20px;
+    margin-top: 25px;
+    border-radius: 8px; 
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  }
+  .card h3 {
+    margin-top: 0;
+    margin-bottom: 15px;
+    color: var(--primary-color);
+    border-left: 4px solid var(--primary-color);
+    padding-left: 10px;
+    font-size: 1.3rem;
+  }
+  
+    /* ========== 圖片樣式修正 ========== */
+  img {
+    width: 100%;
+    height: auto; /* 讓圖片高度依比例縮放 */
+    max-height: 80vh; /* 限制最大高度為視窗的 80% */
+    object-fit: contain; /* 確保圖片內容完整顯示，不被裁切 */
+    border-radius: 6px;
+    margin-top: 10px;
+    display: block;
+    max-width: 80%;
+  }
+  /* ============================== */
+
+  /* 通用標籤 (badge) */
+  .badge {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-weight: bold;
+    font-size: 0.9rem;
+    line-height: 1.2;
+    margin-right: 10px;
+    border: 1px solid transparent; 
+  }
+  
+  /* 嚴重程度 (badge) - 強烈對比 */
+  .badge.urgent {
+    background-color: var(--severity-urgent-bg);
+    color: var(--severity-urgent-text);
+    border-color: var(--severity-urgent-bg);
+  }
+  .badge.normal {
+    background-color: var(--severity-normal-bg);
+    color: var(--severity-normal-text);
+    border-color: var(--primary-color);
+  }
+  
+  /* 狀態標籤 (badge) - 柔和色系 */
+  .badge.status-submitted {
+    background-color: var(--status-submitted-bg);
+    color: var(--status-submitted-text);
+    border-color: #adb5bd;
+  }
+  .badge.status-assigned {
+    background-color: var(--status-assigned-bg);
+    color: var(--status-assigned-text);
+    border-color: var(--primary-color);
+  }
+  .badge.status-processing {
+    background-color: var(--status-processing-bg);
+    color: var(--status-processing-text);
+    border-color: #ffc107;
+  }
+  .badge.status-completed {
+    background-color: var(--status-completed-bg);
+    color: var(--status-completed-text);
+    border-color: var(--status-completed-bg);
+  }
+  
+  /* 表單元素 (Input/Select/File) */
+  select, input[type="file"] {
+    width: 100%;
+    padding: 10px;
+    margin-top: 8px;
+    border: 1px solid var(--border-color);
+    border-radius: 5px; /* 圓弧 */
+    background-color: var(--card-background);
+    box-sizing: border-box; 
+    color: var(--text-color);
+  }
+  
+  label {
+      display: block;
+      margin-top: 15px;
+      font-weight: bold;
+      color: var(--text-color);
+  }
+
+  /* 動作按鈕通用樣式 (淺灰色預設) */
+  .card button {
+    width: 100%;
+    padding: 12px;
+    margin-top: 15px;
+    border: 1px solid var(--border-color);
+    border-radius: 5px; 
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.3s ease-in-out;
+    
+    background-color: #e9ecef; /* 淺灰色 */
+    color: var(--text-color); 
+  }
+  
+  /* 政府操作按鈕: 柔和石板藍 Hover */
+  #assignVendorBtn:hover {
+    background-color: var(--primary-color);
+    color: white;
+    border-color: var(--primary-color);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(63, 114, 175, 0.4);
+  }
+
+  /* 廠商操作按鈕: 柔和琥珀色 Hover */
+  #submitWorkBtn:hover {
+    background-color: var(--vendor-color);
+    color: white;
+    border-color: var(--vendor-color);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(255, 182, 80, 0.4);
+  }
+  
+  /* 其他資訊樣式 */
+  small {
+      display: block;
+      margin-top: 15px;
+      color: var(--secondary-color);
+      border-top: 1px dashed var(--border-color);
+      padding-top: 10px;
+  }
+
+</style>
+</head>
+<body>
+
+<header>
+  <h2>通報詳情</h2>
+  <button onclick="history.back()">返回</button>
+</header>
+
+<div id="content">載入中...</div>
+
+<div class="card" id="govActions" style="display:none;">
+  <h3>⚙️ 政府人員操作</h3>
+
+  <label for="statusSelect">更新案件狀態</label>
+  <select id="statusSelect">
+    <option value="submitted">已送出 (待處理)</option>
+    <option value="assigned">已指派</option>
+    <option value="processing">處理中</option>
+    <option value="completed">已完成</option>
+  </select>
+
+  <label for="vendorSelect">指派廠商</label>
+  <select id="vendorSelect">
+    <option value="">載入廠商中...</option>
+  </select>
+
+  <button id="assignVendorBtn">指派案件給廠商</button>
+</div>
+
+<div class="card" id="vendorActions" style="display:none;">
+  <h3>施工回報（廠商）</h3>
+
+  <label for="beforeImage">施工前照片</label>
+  <input type="file" id="beforeImage">
+
+  <label for="afterImage">施工後照片</label>
+  <input type="file" id="afterImage">
+
+  <button id="submitWorkBtn">回報施工完成</button>
+</div>
+
+<script type="module" src="auth-guard.js"></script>
+
+<script type="module">
+import { initializeApp } from
+  "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+import { getAuth, onAuthStateChanged } from
+  "https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js";
+import {
+  getFirestore,
+  doc,
+  getDoc,
+  updateDoc,
+  collection,
+  getDocs,
+  serverTimestamp
+} from
+  "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
+
+/* ===== Firebase ===== */
+const firebaseConfig = {
+  apiKey: "AIzaSyDQziEhhw0dPu_io9sfWT-a3sADgIKFSd4",
+  authDomain: "system-b4d2d.firebaseapp.com",
+  projectId: "system-b4d2d",
+
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+
+/* ===== Cloudinary ===== */
+const CLOUD_NAME = "dntuqyn7t";
+const UPLOAD_PRESET = "report_images";
+
+/* ===== URL 參數 ===== */
+const reportId = new URLSearchParams(location.search).get("id");
+if (!reportId) throw new Error("Missing report id");
+
+let currentUserRole = null;
+
+/* ===== 角色判斷 ===== */
+onAuthStateChanged(auth, async (user) => {
+  if (!user) return;
+
+  const snap = await getDoc(doc(db, "users", user.uid));
+  if (!snap.exists()) return;
+
+  currentUserRole = snap.data().role;
+
+  if (currentUserRole === "government") {
+    govActions.style.display = "block";
+    loadVendors();
+  }
+
+  if (currentUserRole === "vendor") {
+    vendorActions.style.display = "block";
+  }
+});
+
+/* ===== 載入案件 ===== */
+async function loadReport() {
+  const snap = await getDoc(doc(db, "reports", reportId));
+  if (!snap.exists()) {
+    content.innerHTML = "<p>案件不存在</p>";
+    return;
+  }
+
+  const r = snap.data();
+
+  // 嚴重程度文字
+  const severityText = r.severity === "urgent" ? "🚨 緊急" : "一般";
+
+  content.innerHTML = `
+    <div class="card">
+      <h3>${r.title}</h3>
+      <p>
+        <span class="badge ${r.severity}">
+          嚴重程度：${severityText}
+        </span>
+        <span class="badge status-` + r.status + `">
+          狀態：${statusText(r.status)}
+        </span>
+      </p>
+      <p><strong>描述：</strong>${r.description}</p>
+      <p><strong>GPS：</strong>${r.latitude ?? "-"}, ${r.longitude ?? "-"}</p>
+      
+      <p><strong>通報照片：</strong></p>
+      <img src="${r.imageUrl}" alt="通報照片">
+      
+      ${r.workBeforeImage ? `<p><strong>施工前照片：</strong></p><img src="${r.workBeforeImage}" alt="施工前照片">` : ""}
+      ${r.workAfterImage ? `<p><strong>施工後照片：</strong></p><img src="${r.workAfterImage}" alt="施工後照片">` : ""}
+      
+      <small>建立時間：${formatDate(r.createdAt)}</small>
+    </div>
+  `;
+
+  // 初始化狀態選擇器
+  if (statusSelect) {
+      statusSelect.value = r.status;
+  }
+}
+
+/* ===== 載入廠商 ===== */
+async function loadVendors() {
+  const snap = await getDocs(collection(db, "users"));
+  vendorSelect.innerHTML = `<option value="">請選擇廠商</option>`;
+
+  snap.forEach(docSnap => {
+    const u = docSnap.data();
+    if (u.role === "vendor") {
+      const opt = document.createElement("option");
+      opt.value = docSnap.id;
+      opt.textContent = u.email || docSnap.id;
+      vendorSelect.appendChild(opt);
+    }
+  });
+}
+
+/* ===== 指派案件 (政府操作) ===== */
+assignVendorBtn.onclick = async () => {
+  const vendorId = vendorSelect.value;
+  const newStatus = statusSelect.value; 
+
+  if (!vendorId) return alert("請選擇廠商");
+  if (newStatus !== 'assigned' && newStatus !== 'processing') return alert("指派案件時，狀態應為 '已指派' 或 '處理中'");
+  
+  try {
+      await updateDoc(doc(db, "reports", reportId), {
+        status: newStatus,
+        assignedVendorId: vendorId,
+        assignedAt: serverTimestamp()
+      });
+
+      alert("案件已指派");
+      location.href = "gov.html";
+  } catch(e) {
+      alert("指派失敗：" + e.message);
+  }
+};
+
+/* ===== 廠商回報施工 ===== */
+submitWorkBtn.onclick = async () => {
+  try {
+    const beforeFile = beforeImage.files[0];
+    const afterFile = afterImage.files[0];
+    if (!beforeFile || !afterFile) {
+      throw new Error("請上傳施工前與施工後照片");
+    }
+
+    submitWorkBtn.disabled = true;
+    submitWorkBtn.innerText = "上傳中...";
+
+    const beforeUrl = await uploadToCloudinary(beforeFile);
+    const afterUrl = await uploadToCloudinary(afterFile);
+
+    await updateDoc(doc(db, "reports", reportId), {
+      workBeforeImage: beforeUrl,
+      workAfterImage: afterUrl,
+      workUpdatedAt: serverTimestamp(),
+      status: "completed"
+    });
+
+    alert("施工回報完成");
+    location.href = "vendor.html";
+
+  } catch (err) {
+    alert(err.message);
+    submitWorkBtn.disabled = false;
+    submitWorkBtn.innerText = "回報施工完成";
+  }
+};
+
+/* ===== Cloudinary 上傳 ===== */
+async function uploadToCloudinary(file) {
+  const fd = new FormData();
+  fd.append("file", file);
+  fd.append("upload_preset", UPLOAD_PRESET);
+
+  const res = await fetch(
+    `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`,
+    { method: "POST", body: fd }
+  );
+
+  const data = await res.json();
+  if (!data.secure_url) throw new Error("圖片上傳失敗");
+  return data.secure_url;
+}
+
+/* ===== 工具：狀態顯示文字 (已加入 'assigned') ===== */
+function statusText(s) {
+  return s === "submitted" ? "已送出 (待處理)"
+       : s === "assigned" ? "已指派"
+       : s === "processing" ? "處理中 (施工中)"
+       : s === "completed" ? "已完成 (已修復)"
+       : s;
+}
+
+function formatDate(ts) {
+  return ts && ts.toDate ? ts.toDate().toLocaleString("zh-TW") : "時間未知";
+}
+
+loadReport();
+</script>
+
+</body>
+</html>

@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<title>政府人員後台｜案件管理</title>
+<style>
+  /* 基礎配色與字體設定 - 調整為柔和石板藍 */
+  :root {
+    --primary-color: #3F72AF; /* 柔和石板藍 */
+    --primary-color-dark: #356295;
+    --secondary-color: #6c757d; 
+    --background-color: #f8f9fa; 
+    --card-background: #ffffff; 
+    --text-color: #343a40; 
+    --border-color: #dee2e6;
+    --font-sans: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  }
+
+  body {
+    font-family: var(--font-sans);
+    max-width: 1100px;
+    margin: 30px auto;
+    padding: 0 20px; /* 增加邊距 */
+    background-color: var(--background-color);
+    color: var(--text-color);
+  }
+  
+  /* 頂部標頭 */
+  header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 30px;
+    padding-bottom: 10px;
+    border-bottom: 3px solid var(--primary-color); /* 主題色底線 */
+  }
+
+  h2 {
+    font-size: 1.8rem;
+    color: var(--primary-color);
+    margin: 0;
+  }
+
+  /* 通用按鈕樣式 (圓弧，淺灰預設，滑入變主題色) */
+  button {
+    width: auto;
+    padding: 10px 18px; 
+    border: 1px solid var(--border-color);
+    border-radius: 5px; /* 圓弧邊角 */
+    cursor: pointer;
+    transition: all 0.3s ease-in-out;
+    font-weight: bold;
+    font-size: 1rem;
+    
+    /* 預設為淺灰色背景，深色文字 */
+    background-color: #e9ecef; /* 淺灰色 */
+    color: var(--text-color); 
+  }
+
+  /* 按鈕 hover 效果 */
+  button:hover {
+    background-color: var(--primary-color); /* 柔和石板藍 */
+    color: white; /* 白色文字 */
+    border-color: var(--primary-color);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(63, 114, 175, 0.4);
+  }
+
+  /* 卡片樣式 */
+  .card {
+    background: var(--card-background);
+    border: 1px solid var(--border-color);
+    padding: 25px;
+    margin-top: 25px;
+    border-radius: 8px; /* 圓弧邊角 */
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05); /* 柔和陰影 */
+  }
+  
+  .card h3 {
+    margin-top: 0;
+    margin-bottom: 15px;
+    color: var(--primary-color);
+    border-left: 4px solid var(--primary-color);
+    padding-left: 10px;
+    font-size: 1.3rem;
+  }
+  
+  .card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  
+  /* 表格樣式優化 */
+  table {
+    width: 100%;
+    border-collapse: separate; 
+    border-spacing: 0;
+    margin-top: 15px;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    overflow: hidden; 
+  }
+  th, td {
+    border-bottom: 1px solid var(--border-color);
+    padding: 12px 15px;
+    text-align: left;
+  }
+  th {
+    background-color: #f5f8fc; /* 淺柔和藍色表頭背景 */
+    color: var(--primary-color);
+    font-weight: bold;
+  }
+  /* 移除最後一行的底部邊線 */
+  tr:last-child td {
+    border-bottom: none; 
+  }
+
+  .urgent {
+    color: #e74c3c;
+    font-weight: bold;
+  }
+  
+  #map {
+    width: 100%;
+    height: 300px;
+    margin-top: 10px;
+    border-radius: 6px;
+    border: 1px solid var(--border-color);
+  }
+  
+  /* 地圖資訊與圖例 */
+  .map-info {
+    text-align: center;
+    margin-top: 8px;
+    font-size: 14px;
+    color: var(--secondary-color);
+  }
+  .map-legend {
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+    margin-top: 10px;
+    font-size: 14px;
+  }
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    opacity: 0.7;
+    user-select: none;
+    transition: opacity 0.2s;
+    color: var(--secondary-color);
+  }
+  .legend-item.active {
+    opacity: 1;
+    font-weight: bold;
+    color: var(--primary-color);
+  }
+  .map-legend img {
+    width: 18px;
+    height: 18px;
+  }
+  
+  /* 下拉選單樣式 */
+  select {
+    padding: 8px 10px;
+    border: 1px solid var(--border-color);
+    border-radius: 5px;
+    background-color: var(--card-background);
+    color: var(--text-color);
+    transition: border-color 0.3s;
+    font-size: 1rem;
+  }
+  select:focus {
+    border-color: var(--primary-color);
+    outline: none;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h2>🏢 政府人員案件管理後台</h2>
+  <button id="logoutBtn">登出</button>
+</header>
+
+<div class="card">
+  <p><strong>👤 登入者：</strong><span id="userEmail">載入中...</span></p>
+  <p><strong>🌟 身分：</strong>政府人員</p>
+</div>
+
+<div class="card">
+  <h3>案件通報地圖</h3>
+
+  <div id="map"></div>
+
+  <div class="map-info">
+    <span id="reportCount">載入中...</span>
+  </div>
+
+  <div class="map-legend">
+    <span class="legend-item" data-status="submitted">
+      <img src="http://maps.google.com/mapfiles/ms/icons/red-dot.png">
+      尚未處理
+    </span>
+    <span class="legend-item" data-status="processing">
+      <img src="http://maps.google.com/mapfiles/ms/icons/yellow-dot.png">
+      處理中
+    </span>
+    <span class="legend-item" data-status="completed">
+      <img src="http://maps.google.com/mapfiles/ms/icons/green-dot.png">
+      已完成
+    </span>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <h3>案件清單</h3>
+    <div>
+      <label>篩選狀態：</label>
+      <select id="statusFilter">
+        <option value="all">全部</option>
+        <option value="submitted">尚未處理</option>
+        <option value="processing">處理中</option>
+        <option value="completed">已完成</option>
+      </select>
+    </div>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th>標題</th>
+        <th>嚴重程度</th>
+        <th>狀態</th>
+        <th>建立時間</th>
+        <th>操作</th>
+      </tr>
+    </thead>
+    <tbody id="reportTable">
+      <tr><td colspan="5">載入中...</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<script type="module" src="auth-guard.js"></script>
+
+<script type="module">
+import { initializeApp } from
+  "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+import {
+  getAuth,
+  onAuthStateChanged,
+  signOut
+} from
+  "https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js";
+import {
+  getFirestore,
+  collection,
+  getDocs
+} from
+  "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
+
+/* Firebase 設定 */
+const firebaseConfig = {
+  apiKey: "AIzaSyDQziEhhw0dPu_io9sfWT-a3sADgIKFSd4",
+  authDomain: "system-b4d2d.firebaseapp.com",
+  projectId: "system-b4d2d",
+
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+
+const tableBody = document.getElementById("reportTable");
+
+window.__allReports = [];
+window.__mapReady = false;
+
+/* ===== 嚴重程度排序（作法一） ===== */
+function sortBySeverity(reports) {
+  const order = { urgent: 0, normal: 1 };
+  return [...reports].sort(
+    (a, b) => (order[a.severity] ?? 99) - (order[b.severity] ?? 99)
+  );
+}
+
+/* 登入後載入 */
+onAuthStateChanged(auth, async (user) => {
+  if (!user) return;
+  userEmail.innerText = user.email;
+  await loadAllReports();
+  window.__mapReady = true;
+});
+
+/* 登出 */
+logoutBtn.onclick = async () => {
+  await signOut(auth);
+  location.href = "auth.html";
+};
+
+/* 載入所有案件 */
+async function loadAllReports() {
+  window.__allReports = [];
+  const snap = await getDocs(collection(db, "reports"));
+
+  let submitted = 0, processing = 0, completed = 0;
+
+  snap.forEach(docSnap => {
+    const r = docSnap.data();
+    if (r.status === "submitted") submitted++;
+    else if (r.status === "processing") processing++;
+    else if (r.status === "completed") completed++;
+    window.__allReports.push({ id: docSnap.id, ...r });
+  });
+
+  renderTable(sortBySeverity(window.__allReports));
+
+  reportCount.innerText =
+    `共 ${window.__allReports.length} 件（送出 ${submitted} / 處理中 ${processing} / 完成 ${completed}）`;
+}
+
+/* 畫表格 */
+function renderTable(reports) {
+  tableBody.innerHTML = "";
+
+  if (reports.length === 0) {
+    tableBody.innerHTML =
+      `<tr><td colspan="5" style="text-align: center; color: var(--secondary-color);">沒有符合條件的案件</td></tr>`;
+    return;
+  }
+
+  reports.forEach(r => {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${r.title}</td>
+      <td class="${r.severity === "urgent" ? "urgent" : ""}">
+        ${r.severity === "urgent" ? "🚨 緊急" : "一般"}
+      </td>
+      <td>${statusText(r.status)}</td>
+      <td>${formatDate(r.createdAt)}</td>
+      <td>
+        <a href="report-detail.html?id=${r.id}" style="color: var(--primary-color); text-decoration: none;">查看詳情</a>
+      </td>
+    `;
+    tableBody.appendChild(tr);
+  });
+}
+
+/* 下拉選單篩選（含排序 + 地圖同步） */
+statusFilter.onchange = () => {
+  clearLegend();
+  applyFilter(statusFilter.value);
+};
+
+/* ===== 點擊圖例篩選 ===== */
+let activeLegend = null;
+
+document.querySelectorAll(".legend-item").forEach(item => {
+  item.onclick = () => {
+    const status = item.dataset.status;
+
+    if (activeLegend === status) {
+      clearLegend();
+      statusFilter.value = "all";
+      applyFilter("all");
+      return;
+    }
+
+    activeLegend = status;
+    document.querySelectorAll(".legend-item")
+      .forEach(i => i.classList.remove("active"));
+    item.classList.add("active");
+
+    statusFilter.value = status;
+    applyFilter(status);
+  };
+});
+
+function clearLegend() {
+  activeLegend = null;
+  document.querySelectorAll(".legend-item")
+    .forEach(i => i.classList.remove("active"));
+}
+
+/* 套用篩選（排序後顯示） */
+function applyFilter(status) {
+  const filtered =
+    status === "all"
+      ? window.__allReports
+      : window.__allReports.filter(r => r.status === status);
+
+  const sorted = sortBySeverity(filtered);
+
+  renderTable(sorted);
+  renderMapMarkers(
+    sorted.filter(r => r.latitude != null)
+  );
+}
+
+/* 工具 */
+function statusText(s) {
+  return s === "submitted" ? "尚未處理"
+       : s === "processing" ? "處理中"
+       : s === "completed" ? "✅ 已完成"
+       : s;
+}
+function formatDate(ts) {
+  return ts ? ts.toDate().toLocaleString("zh-TW") : "N/A";
+}
+</script>
+
+<script>
+let govMap;
+let govMarkers = [];
+
+function initGovMap() {
+  const wait = setInterval(() => {
+    if (window.__mapReady) {
+      clearInterval(wait);
+      drawGovMap();
+    }
+  }, 100);
+}
+
+function drawGovMap() {
+  const reports = window.__allReports.filter(
+    r => r.latitude != null && r.longitude != null
+  );
+
+  const center = reports.length
+    ? { lat: Number(reports[0].latitude), lng: Number(reports[0].longitude) }
+    : { lat: 25.0478, lng: 121.5170 };
+
+  govMap = new google.maps.Map(document.getElementById("map"), {
+    center,
+    zoom: 12
+  });
+
+  renderMapMarkers(reports);
+}
+
+function renderMapMarkers(reports) {
+  govMarkers.forEach(m => m.setMap(null));
+  govMarkers = [];
+
+  reports.forEach(r => {
+    const icon =
+      r.status === "submitted"
+        ? "http://maps.google.com/mapfiles/ms/icons/red-dot.png"
+        : r.status === "processing"
+        ? "http://maps.google.com/mapfiles/ms/icons/yellow-dot.png"
+        : "http://maps.google.com/mapfiles/ms/icons/green-dot.png";
+
+    const marker = new google.maps.Marker({
+      map: govMap,
+      position: {
+        lat: Number(r.latitude),
+        lng: Number(r.longitude)
+      },
+      icon,
+      title: r.title
+    });
+
+    marker.addListener("click", () => {
+      location.href = `report-detail.html?id=${r.id}`;
+    });
+
+    govMarkers.push(marker);
+  });
+}
+</script>
+
+<script
+  src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDWncU5_3lao2CkDNUWf9llEMDywLUBmTs&callback=initGovMap"
+  async defer>
+</script>
+
+</body>
+</html>

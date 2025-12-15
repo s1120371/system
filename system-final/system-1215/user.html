@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<title>一般使用者首頁｜路見不平通報系統</title>
+<style>
+  /* 基礎配色與字體設定 - 調整為柔和石板藍 */
+  :root {
+    --primary-color: #3F72AF; /* 柔和石板藍 */
+    --primary-color-dark: #356295;
+    --secondary-color: #6c757d; 
+    --background-color: #f8f9fa; 
+    --card-background: #ffffff; 
+    --text-color: #343a40; 
+    --border-color: #dee2e6;
+    --font-sans: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  }
+
+  body {
+    font-family: var(--font-sans);
+    max-width: 900px;
+    margin: 30px auto;
+    padding: 0 20px;
+    background-color: var(--background-color);
+    color: var(--text-color);
+  }
+
+  /* 頂部標頭 */
+  header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 30px;
+    padding-bottom: 10px;
+    border-bottom: 3px solid var(--primary-color); /* 主題色線條 */
+  }
+
+  h2 {
+    font-size: 1.8rem;
+    color: var(--primary-color);
+    margin: 0;
+  }
+
+  /* 登出按鈕 */
+  header button#logoutBtn {
+    background-color: var(--secondary-color);
+    color: white;
+    border: none;
+    padding: 10px 18px;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+    width: auto; /* 確保不會被全寬覆蓋 */
+  }
+  header button#logoutBtn:hover {
+    background-color: #5a6268;
+  }
+  
+  /* 卡片樣式 */
+  .card {
+    background: var(--card-background);
+    border: 1px solid var(--border-color);
+    border-radius: 8px; /* 圓弧邊角 */
+    padding: 25px;
+    margin-top: 25px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  }
+
+  .card h3 {
+    margin-top: 0;
+    margin-bottom: 15px;
+    color: var(--primary-color);
+    border-left: 4px solid var(--primary-color);
+    padding-left: 10px;
+    font-size: 1.3rem;
+  }
+  
+  /* 功能按鈕區塊 */
+  .card:nth-child(3) { /* 針對功能卡片 */
+    display: flex;
+    flex-wrap: wrap;
+    gap: 15px;
+  }
+
+  /* ========== 功能按鈕樣式 (淺灰色預設 + 圓弧) ========== */
+  .card button {
+    flex: 1 1 auto; /* 讓按鈕平均分佈 */
+    padding: 12px 15px;
+    border: 1px solid var(--border-color);
+    border-radius: 5px; 
+    font-size: 1rem;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.3s ease-in-out;
+    text-align: center;
+    
+    /* 預設為淺灰色背景，深色文字 */
+    background-color: #e9ecef; 
+    color: var(--text-color); 
+  }
+
+  /* 滑鼠移入時 (柔和石板藍) */
+  .card button:hover {
+    background-color: var(--primary-color); 
+    color: white; 
+    border-color: var(--primary-color);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(63, 114, 175, 0.4);
+  }
+  /* ======================================================= */
+
+  /* 地圖樣式 */
+  #map {
+    width: 100%;
+    height: 350px; /* 稍微加大地圖高度 */
+    margin-top: 15px;
+    border: 1px solid var(--border-color);
+    border-radius: 5px;
+  }
+
+  .map-info {
+    text-align: center;
+    margin-top: 15px;
+    font-size: 0.95rem;
+    color: var(--primary-color);
+    font-weight: bold;
+  }
+
+  /* 圖例樣式 */
+  .map-legend {
+    display: flex;
+    justify-content: center;
+    gap: 30px;
+    margin-top: 10px;
+    font-size: 0.9rem;
+    color: var(--secondary-color);
+  }
+
+  .map-legend span {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .map-legend img {
+    width: 20px;
+    height: 20px;
+  }
+
+</style>
+</head>
+<body>
+
+<header>
+  <h2>🏠 一般使用者首頁</h2>
+  <button id="logoutBtn">登出</button>
+</header>
+
+<div class="card">
+  <p><strong>👤 登入者：</strong><span id="userEmail">載入中...</span></p>
+  <p><strong>🌟 身分：</strong>一般民眾</p>
+</div>
+
+<div class="card">
+  <button id="createReportBtn">新增通報</button>
+  <button id="myReportsBtn">查看我的通報</button>
+  <button id="allReportsBtn">查詢所有通報</button>
+</div>
+
+
+<div class="card">
+  <h3>案件通報地圖</h3>
+
+  <div id="map"></div>
+
+  <div class="map-info">
+    <span id="reportCount">載入中...</span>
+  </div>
+
+  <div class="map-legend">
+    <span>
+      <img src="https://maps.google.com/mapfiles/ms/icons/red-dot.png">
+      緊急通報 (未處理)
+    </span>
+    <span>
+      <img src="http://maps.google.com/mapfiles/ms/icons/green-dot.png">
+      一般通報 (未處理)
+    </span>
+  </div>
+</div>
+
+<script type="module" src="auth-guard.js"></script>
+
+<script type="module">
+import { initializeApp } from
+  "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+import {
+  getAuth,
+  onAuthStateChanged,
+  signOut
+} from
+  "https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js";
+import {
+  getFirestore,
+  collection,
+  getDocs
+} from
+  "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
+
+/* Firebase 設定（請與其他頁一致） */
+const firebaseConfig = {
+  apiKey: "AIzaSyDQziEhhw0dPu_io9sfWT-a3sADgIKFSd4",
+  authDomain: "system-b4d2d.firebaseapp.com",
+  projectId: "system-b4d2d",
+
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+
+window.__homeReports = [];
+window.__homeReportsReady = false;
+
+/* 登入後載入 */
+onAuthStateChanged(auth, async (user) => {
+  if (!user) return;
+
+  userEmail.innerText = user.email;
+  await loadReports();
+  window.__homeReportsReady = true;
+});
+
+/* 登出 */
+logoutBtn.onclick = async () => {
+  await signOut(auth);
+  location.href = "auth.html";
+};
+
+/* 功能按鈕 */
+createReportBtn.onclick = () => location.href = "report-create.html";
+myReportsBtn.onclick = () => location.href = ("my-reports.html"); 
+allReportsBtn.onclick = () => location.href = ("all-reports.html"); 
+
+
+/* 載入所有案件（只讀） */
+async function loadReports() {
+  window.__homeReports = [];
+
+  const snap = await getDocs(collection(db, "reports"));
+  let urgent = 0, normal = 0;
+
+  snap.forEach(docSnap => {
+    const r = docSnap.data();
+    if (r.latitude == null || r.longitude == null) return;
+
+    if (r.severity === "urgent") urgent++;
+    else normal++;
+
+    window.__homeReports.push({
+      id: docSnap.id,
+      ...r
+    });
+  });
+
+  reportCount.innerText =
+    `共 ${urgent + normal} 件通報（緊急 ${urgent} / 一般 ${normal}）`;
+}
+</script>
+
+<script>
+let homeMap;
+
+function initHomeMap() {
+  const wait = setInterval(() => {
+    if (window.__homeReportsReady) {
+      clearInterval(wait);
+      drawHomeMap();
+    }
+  }, 100);
+}
+
+function drawHomeMap() {
+  const reports = window.__homeReports;
+
+  // 預設中心點 (若無資料則設在台北市中心)
+  const center = reports.length
+    ? { lat: Number(reports[0].latitude), lng: Number(reports[0].longitude) }
+    : { lat: 25.0478, lng: 121.5170 };
+
+  homeMap = new google.maps.Map(document.getElementById("map"), {
+    center,
+    zoom: 13
+  });
+
+  reports.forEach(r => {
+    // 使用 Google Maps 內建的點圖標
+    const icon =
+      r.severity === "urgent"
+        ? "https://maps.google.com/mapfiles/ms/icons/red-dot.png" /* 紅色 for Urgent */
+        : "http://maps.google.com/mapfiles/ms/icons/green-dot.png"; /* 綠色 for Normal */
+
+    const marker = new google.maps.Marker({
+      map: homeMap,
+      position: {
+        lat: Number(r.latitude),
+        lng: Number(r.longitude)
+      },
+      icon,
+      title: r.title
+    });
+
+    marker.addListener("click", () => {
+      // 點擊 Marker 導向案件詳情
+      location.href = `report-detail.html?id=${r.id}`;
+    });
+  });
+}
+</script>
+
+<script
+  src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDWncU5_3lao2CkDNUWf9llEMDywLUBmTs&callback=initHomeMap"
+  async
+  defer>
+</script>
+
+</body>
+</html>

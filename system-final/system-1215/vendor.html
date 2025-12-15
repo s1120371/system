@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<title>廠商後台｜指派案件</title>
+<style>
+  /* 基礎配色與字體設定 - 調整為柔和石板藍與柔和琥珀色 */
+  :root {
+    --primary-color: #3F72AF; /* 柔和石板藍 (用於卡片標題) */
+    --primary-color-dark: #356295;
+    --vendor-color:#A8815F; /* 柔和陶土棕 (廠商識別色/主要線條) */
+    --vendor-color-dark: #8D6C4F; /* 較深的柔和陶土棕 */
+    --secondary-color: #6c757d; 
+    --background-color: #f8f9fa; 
+    --card-background: #ffffff; 
+    --text-color: #343a40; 
+    --border-color: #dee2e6;
+    --font-sans: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  }
+  
+  body {
+    font-family: var(--font-sans);
+    max-width: 1100px;
+    margin: 30px auto;
+    padding: 0 20px; /* 增加邊距 */
+    background-color: var(--background-color);
+    color: var(--text-color);
+  }
+
+  /* 頂部標頭 */
+  header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 30px;
+    padding-bottom: 10px;
+    border-bottom: 3px solid var(--vendor-color); /* 廠商用柔和琥珀色線條 */
+  }
+  
+  h2 {
+    font-size: 1.8rem;
+    color: var(--vendor-color); /* 廠商用柔和琥珀色 */
+    margin: 0;
+  }
+
+  /* 登出按鈕 */
+  #logoutBtn {
+    width: auto;
+    background-color: var(--secondary-color);
+    color: white;
+    border: none;
+    padding: 10px 18px;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+    font-size: 1rem;
+    font-weight: bold;
+  }
+  #logoutBtn:hover {
+    background-color: #5a6268;
+  }
+
+  /* 卡片樣式 */
+  .card {
+    background: var(--card-background);
+    border: 1px solid var(--border-color);
+    border-radius: 8px; /* 圓弧邊角 */
+    padding: 25px; /* 增加內邊距 */
+    margin-top: 25px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05); /* 柔和陰影 */
+  }
+
+  .card h3 {
+    margin-top: 0;
+    margin-bottom: 15px;
+    color:  #A8815F;
+    border-left: 4px solid #A8815F; /* 主題線 */
+    padding-left: 10px;
+    font-size: 1.3rem;
+  }
+  
+  .card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  /* 表格樣式優化 */
+  table {
+    width: 100%;
+    border-collapse: separate; 
+    border-spacing: 0;
+    margin-top: 15px;
+    border: 1px solid #A8815F;
+    border-radius: 6px;
+    overflow: hidden; 
+  }
+  th, td {
+    border-bottom: 1px solid #A8815F;
+    padding: 12px 15px; /* 增加內邊距 */
+    text-align: left;
+  }
+  th {
+    background-color: #f1eddf; /* 淺柔和藍色表頭背景 */
+    color: #A8815F;
+    font-weight: bold;
+  }
+  /* 移除最後一行的底部邊線 */
+  tr:last-child td {
+    border-bottom: none; 
+  }
+
+  .urgent {
+    color: #e74c3c;
+    font-weight: bold;
+  }
+
+  /* 地圖 */
+  #map {
+    width: 100%;
+    height: 300px;
+    margin-top: 15px;
+    border-radius: 6px; /* 圓弧地圖邊角 */
+    border: 1px solid var(--border-color);
+  }
+  .map-info {
+    text-align: center;
+    margin-top: 10px;
+    font-size: 0.9rem;
+    color: var(--secondary-color);
+  }
+
+  /* Table action link/button (查看) */
+  td a {
+    display: inline-block;
+    padding: 6px 12px;
+    background-color: #e9ecef; /* 預設柔和淺灰色 */
+    color: var(--text-color);
+    border: 1px solid var(--border-color);
+    border-radius: 4px; /* 圓弧邊角 */
+    text-decoration: none;
+    font-size: 0.9rem;
+    font-weight: bold;
+    transition: all 0.2s;
+  }
+  
+  td a:hover {
+    background-color: var(--vendor-color); /* 滑鼠移入：柔和琥珀色 */
+    color: white;
+    border-color: var(--vendor-color);
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h2>🛠️ 廠商案件管理</h2>
+  <button id="logoutBtn">登出</button>
+</header>
+
+<div class="card">
+  <p><strong>👤 登入者：</strong><span id="userEmail">載入中...</span></p>
+  <p><strong>🌟 身分：</strong>廠商</p>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <h3>我的施工案件地圖</h3>
+  </div>
+
+  <div id="map"></div>
+
+  <div class="map-info">
+    <span id="reportCount">載入中...</span>
+  </div>
+</div>
+
+<div class="card">
+  <h3>指派給我的案件（緊急 → 一般）</h3>
+
+  <table>
+    <thead>
+      <tr>
+        <th>標題</th>
+        <th>嚴重程度</th>
+        <th>狀態</th>
+        <th>指派時間</th>
+        <th>操作</th>
+      </tr>
+    </thead>
+    <tbody id="reportTable">
+      <tr>
+        <td colspan="5" style="text-align: center;">載入中...</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<script type="module" src="auth-guard.js"></script>
+
+<script type="module">
+import { initializeApp } from
+  "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+import {
+  getAuth,
+  onAuthStateChanged,
+  signOut
+} from
+  "https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js";
+import {
+  getFirestore,
+  collection,
+  query,
+  where,
+  getDocs
+} from
+  "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
+
+/* Firebase 設定（與其他頁一致） */
+const firebaseConfig = {
+  apiKey: "AIzaSyDQziEhhw0dPu_io9sfWT-a3sADgIKFSd4",
+  authDomain: "system-b4d2d.firebaseapp.com",
+  projectId: "system-b4d2d"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+
+const tableBody = document.getElementById("reportTable");
+
+/* ===== 地圖共用 ===== */
+window.__mapReports = [];
+window.__mapReady = false;
+
+/* ===== 嚴重程度排序（urgent → normal） ===== */
+function sortBySeverity(reports) {
+  const order = { urgent: 0, normal: 1 };
+  return [...reports].sort(
+    (a, b) => (order[a.severity] ?? 99) - (order[b.severity] ?? 99)
+  );
+}
+
+/* 登入後載入 */
+onAuthStateChanged(auth, async (user) => {
+  if (!user) return;
+
+  userEmail.innerText = user.email;
+  await loadMyReports(user.uid);
+  window.__mapReady = true;
+});
+
+/* 登出 */
+logoutBtn.onclick = async () => {
+  await signOut(auth);
+  location.href = "auth.html";
+};
+
+/* 載入指派給我的案件 */
+async function loadMyReports(uid) {
+  tableBody.innerHTML =
+    `<tr><td colspan="5" style="text-align: center;">載入中...</td></tr>`;
+
+  window.__mapReports = [];
+
+  const q = query(
+    collection(db, "reports"),
+    where("assignedVendorId", "==", uid)
+  );
+
+  const snap = await getDocs(q);
+  tableBody.innerHTML = "";
+
+  if (snap.empty) {
+    tableBody.innerHTML =
+      `<tr><td colspan="5" style="text-align: center; color: var(--secondary-color);">目前沒有指派案件</td></tr>`;
+    reportCount.innerText = "共 0 件指派案件";
+    return;
+  }
+
+  let reports = [];
+
+  snap.forEach(docSnap => {
+    reports.push({
+      id: docSnap.id,
+      ...docSnap.data()
+    });
+  });
+
+  /* ⭐ 嚴重程度排序 */
+  const sorted = sortBySeverity(reports);
+
+  sorted.forEach(r => {
+    window.__mapReports.push(r);
+
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${r.title}</td>
+      <td class="${r.severity === "urgent" ? "urgent" : ""}">
+        ${r.severity === "urgent" ? "🚨 緊急" : "一般"}
+      </td>
+      <td>${statusText(r.status)}</td>
+      <td>${formatDate(r.assignedAt)}</td>
+      <td>
+        <a href="report-detail.html?id=${r.id}">查看</a>
+      </td>
+    `;
+    tableBody.appendChild(tr);
+  });
+
+  reportCount.innerText = `共 ${sorted.length} 件指派案件`;
+}
+
+/* 輔助 */
+function statusText(status) {
+  return status === "submitted" ? "已送出"
+       : status === "processing" ? "處理中"
+       : status === "completed" ? "已完成"
+       : status;
+}
+
+function formatDate(ts) {
+  return ts ? ts.toDate().toLocaleString("zh-TW") : "";
+}
+</script>
+
+<script>
+function initVendorMap() {
+  const wait = setInterval(() => {
+    if (window.__mapReady) {
+      clearInterval(wait);
+      drawVendorMap();
+    }
+  }, 100);
+}
+
+function drawVendorMap() {
+  const reports = window.__mapReports.filter(
+    r => r.latitude != null && r.longitude != null
+  );
+
+  const center = reports.length
+    ? { lat: Number(reports[0].latitude), lng: Number(reports[0].longitude) }
+    : { lat: 25.0478, lng: 121.5170 }; // 預設台北
+
+  const map = new google.maps.Map(document.getElementById("map"), {
+    center,
+    zoom: 13
+  });
+
+  reports.forEach(r => {
+    const marker = new google.maps.Marker({
+      map,
+      position: {
+        lat: Number(r.latitude),
+        lng: Number(r.longitude)
+      },
+      icon: {
+        url: r.severity === "urgent" ? "http://maps.google.com/mapfiles/ms/icons/red-dot.png" : "http://maps.google.com/mapfiles/ms/icons/orange-dot.png" // 根據嚴重程度調整顏色
+      },
+      title: r.title
+    });
+
+    marker.addListener("click", () => {
+      location.href = `report-detail.html?id=${r.id}`;
+    });
+  });
+}
+</script>
+
+<script
+  src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDWncU5_3lao2CkDNUWf9llEMDywLUBmTs&callback=initVendorMap"
+  async defer>
+</script>
+
+</body>
+</html>
